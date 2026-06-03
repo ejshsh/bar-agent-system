@@ -309,6 +309,23 @@ h2 {
   content: " >";
 }
 
+.data-source-note {
+  background: var(--parchment);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  color: var(--ink-muted);
+  font-size: 17px;
+  margin: 26px 0 0;
+  max-width: 560px;
+  padding: 16px 18px;
+}
+
+.data-source-note.live {
+  background: #f5fbff;
+  border-color: var(--primary);
+  color: var(--ink);
+}
+
 .bottle-stage {
   align-items: end;
   aspect-ratio: 1.14;

@@ -11,6 +11,7 @@ const inventoryAlerts = document.querySelector("[data-inventory-alerts]");
 const storageList = document.querySelector("[data-storage-list]");
 const activityList = document.querySelector("[data-activity-list]");
 const supplierTable = document.querySelector("[data-supplier-table]");
+const liveSummary = document.querySelector("[data-live-summary]");
 
 let agentAnswers = {
   replenishment: {
@@ -230,6 +231,16 @@ function renderUtilityCard(card) {
 function setApiStatus(text, isLive) {
   apiStatus.textContent = text;
   apiStatus.classList.toggle("live", isLive);
+  liveSummary.classList.toggle("live", isLive);
+}
+
+function setLiveSummaryForDashboard(dashboard) {
+  const metrics = dashboard.metrics || {};
+  liveSummary.textContent = `已连接后端实时数据：快缺货 ${metrics.low_stock_count ?? 0}，库存积压 ${metrics.overstock_count ?? 0}，临期存酒 ${metrics.expiring_storage_count ?? 0}，AI 建议 ${metrics.agent_suggestion_count ?? 0}。`;
+}
+
+function setFallbackSummary() {
+  liveSummary.textContent = "后端未连接，当前显示演示数据。请确认 PowerShell 正在运行 python -m backend.server。";
 }
 
 async function loadDashboard() {
@@ -242,9 +253,11 @@ async function loadDashboard() {
     }
     const dashboard = await response.json();
     renderDashboard(dashboard);
+    setLiveSummaryForDashboard(dashboard);
     setApiStatus("实时数据", true);
   } catch (error) {
     setApiStatus("演示数据", false);
+    setFallbackSummary();
   }
 }
 
