@@ -7,6 +7,10 @@
 - `index.html`：静态前端原型入口。
 - `styles.css`：Apple 风格视觉系统、响应式布局和页面样式。
 - `app.js`：导航选中、AI Agent 问答切换、活动建议切换。
+- `backend/db.py`：SQLite 建表、种子数据和数据读取。
+- `backend/rules.py`：缺货、积压、临期存酒、采购异常和 Agent 建议规则。
+- `backend/server.py`：基于 Python 标准库的 JSON API 服务。
+- `tests/`：后端规则和 API 单元测试。
 - `docs/superpowers/specs/2026-06-04-bar-ai-agent-technical-design.md`：系统技术方案。
 - `docs/superpowers/specs/2026-06-04-bar-frontend-apple-prototype-design.md`：前端原型设计说明。
 - `docs/superpowers/plans/2026-06-04-bar-frontend-apple-prototype.md`：前端原型实现计划。
@@ -36,8 +40,47 @@ http://127.0.0.1:8765/index.html
 - `index.html` 已引用 `styles.css` 和 `app.js`。
 - 页面包含首屏、库存预警、AI Agent、客户存酒、活动建议和供应商表现模块。
 - `app.js` 通过 `node --check app.js` 语法检查。
+- 后端单元测试通过 `python -m unittest discover -s tests -v`。
 - CSS 未使用视口宽度字体、装饰渐变或负字距。
 - 已保留移动端断点，避免主要模块在窄屏下横向拥挤。
+
+## 启动后端 API
+
+当前后端为了保证离线可运行，先使用 Python 标准库实现 JSON API，不依赖 FastAPI 或 Flask。后续可以在接口稳定后迁移到 FastAPI。
+
+启动命令：
+
+```powershell
+python -m backend.server
+```
+
+默认地址：
+
+```text
+http://127.0.0.1:8000
+```
+
+可用接口：
+
+```text
+GET /api/health
+GET /api/dashboard
+GET /api/products
+GET /api/suppliers
+GET /api/customer-storage
+```
+
+首次启动会自动创建 SQLite 数据库：
+
+```text
+data/bar_agent.db
+```
+
+运行测试：
+
+```powershell
+python -m unittest discover -s tests -v
+```
 
 ## 浏览器 QA 说明
 
