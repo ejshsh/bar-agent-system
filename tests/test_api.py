@@ -20,8 +20,10 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
         self.assertIn("metrics", payload)
+        self.assertIn("activity_suggestions", payload)
         self.assertGreaterEqual(payload["metrics"]["low_stock_count"], 1)
         self.assertTrue(payload["agent_suggestions"])
+        self.assertTrue(payload["activity_suggestions"])
 
     def test_unknown_endpoint_returns_404_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:

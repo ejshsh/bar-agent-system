@@ -50,6 +50,9 @@ class RulesTest(unittest.TestCase):
         self.assertEqual(dashboard["metrics"]["expiring_storage_count"], 2)
         self.assertEqual(dashboard["metrics"]["price_anomaly_count"], 1)
         self.assertTrue(dashboard["agent_suggestions"])
+        self.assertIn("activity_suggestions", dashboard)
+        self.assertEqual(dashboard["agent_suggestions"][0]["question_key"], "replenishment")
+        self.assertEqual(dashboard["activity_suggestions"][0]["activity_key"], "clearance")
 
 
 if __name__ == "__main__":

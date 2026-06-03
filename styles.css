@@ -132,6 +132,21 @@ button {
   gap: 12px;
 }
 
+.api-status {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  color: var(--ink-muted);
+  font-size: 14px;
+  min-height: 36px;
+  padding: 7px 14px;
+}
+
+.api-status.live {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 .button {
   align-items: center;
   border: 1px solid var(--primary);
@@ -712,6 +727,11 @@ h2 {
   }
 
   .sub-actions .button {
+    width: 100%;
+  }
+
+  .api-status {
+    text-align: center;
     width: 100%;
   }
 }

@@ -17,6 +17,14 @@
 
 ## 查看前端原型
 
+前端会优先请求后端：
+
+```text
+http://127.0.0.1:8000/api/dashboard
+```
+
+如果后端未启动，页面会自动保留演示数据，并在顶部显示“演示数据”。
+
 直接用浏览器打开：
 
 ```text
@@ -40,6 +48,8 @@ http://127.0.0.1:8765/index.html
 - `index.html` 已引用 `styles.css` 和 `app.js`。
 - 页面包含首屏、库存预警、AI Agent、客户存酒、活动建议和供应商表现模块。
 - `app.js` 通过 `node --check app.js` 语法检查。
+- `app.js` 会请求 `/api/dashboard`，成功后渲染真实指标和建议，失败后回退演示数据。
+- 前端静态检查通过 `node tests/check_frontend.js`。
 - 后端单元测试通过 `python -m unittest discover -s tests -v`。
 - CSS 未使用视口宽度字体、装饰渐变或负字距。
 - 已保留移动端断点，避免主要模块在窄屏下横向拥挤。
@@ -80,6 +90,7 @@ data/bar_agent.db
 
 ```powershell
 python -m unittest discover -s tests -v
+node tests\check_frontend.js
 ```
 
 ## 浏览器 QA 说明

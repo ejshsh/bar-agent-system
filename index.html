@@ -27,6 +27,7 @@
           <h1>酒水采购、仓储与客户存酒管理</h1>
         </div>
         <div class="sub-actions">
+          <span class="api-status" data-api-status>演示数据</span>
           <button class="button secondary" type="button">新增采购单</button>
           <button class="button primary" type="button">生成补货建议</button>
         </div>
@@ -59,23 +60,23 @@
 
         <div class="metrics-row" aria-label="关键经营指标">
           <article class="metric-card">
-            <span class="metric-value">12</span>
+            <span class="metric-value" data-metric="low_stock_count">12</span>
             <span class="metric-label">快缺货酒水</span>
           </article>
           <article class="metric-card">
-            <span class="metric-value">8</span>
+            <span class="metric-value" data-metric="overstock_count">8</span>
             <span class="metric-label">库存积压</span>
           </article>
           <article class="metric-card">
-            <span class="metric-value">23</span>
+            <span class="metric-value" data-metric="expiring_storage_count">23</span>
             <span class="metric-label">临期存酒客户</span>
           </article>
           <article class="metric-card">
-            <span class="metric-value">4</span>
+            <span class="metric-value" data-metric="price_anomaly_count">4</span>
             <span class="metric-label">价格异常</span>
           </article>
           <article class="metric-card">
-            <span class="metric-value">16</span>
+            <span class="metric-value" data-metric="agent_suggestion_count">16</span>
             <span class="metric-label">AI 建议</span>
           </article>
         </div>
@@ -87,7 +88,7 @@
           <h2>库存预警先于忙乱发生。</h2>
           <p>按安全库存、近 30 天消耗和供应商交付周期，系统自动识别快缺货、低周转和批次临期酒水。</p>
         </div>
-        <div class="grid three">
+        <div class="grid three" data-inventory-alerts>
           <article class="utility-card">
             <p class="card-kicker">快缺货</p>
             <h3>百龄坛 12 年</h3>
@@ -137,7 +138,7 @@
           <h2>客户存酒，不再靠记忆。</h2>
           <p>存酒凭证、剩余酒量、到期提醒和异常记录统一管理，适合召回的客户会自动进入运营视野。</p>
         </div>
-        <div class="storage-panel">
+        <div class="storage-panel" data-storage-list>
           <article class="storage-item">
             <span class="status-dot urgent"></span>
             <div>
@@ -171,7 +172,7 @@
           <h2>活动不是拍脑袋，是库存和毛利一起说话。</h2>
           <p>Agent 根据低周转、临期存酒、高毛利和新品数据，生成可以直接评估的活动方案。</p>
         </div>
-        <div class="activity-grid">
+        <div class="activity-grid" data-activity-list>
           <button class="activity-card selected" type="button" data-activity="clearance">
             <span>库存清理</span>
             <strong>低周转预调酒买赠</strong>
@@ -200,7 +201,7 @@
           <h2>供应商表现，用数据说清楚。</h2>
           <p>价格稳定性、交付周期和异常次数共同形成评分，采购人员可以快速选择更可靠的供货来源。</p>
         </div>
-        <div class="supplier-table" role="table" aria-label="供应商表现">
+        <div class="supplier-table" role="table" aria-label="供应商表现" data-supplier-table>
           <div class="supplier-row header" role="row">
             <span>供应商</span>
             <span>稳定性</span>
