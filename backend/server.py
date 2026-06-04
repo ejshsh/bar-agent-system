@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .db import (
+    create_inventory_adjustment,
     create_product,
     create_purchase_order,
     create_sales_record,
@@ -136,6 +137,12 @@ class BarApi:
                 result = create_sales_record(self.db_path, payload)
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_sales_record", "message": str(error)})
+            return self._json(201, result)
+        if route == "/api/inventory-adjustments":
+            try:
+                result = create_inventory_adjustment(self.db_path, payload)
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_inventory_adjustment", "message": str(error)})
             return self._json(201, result)
 
         return self._json(404, {"error": "not_found", "path": route})

@@ -309,6 +309,75 @@ def create_sales_record(db_path: str | Path, payload: dict[str, Any]) -> dict[st
     }
 
 
+def create_inventory_adjustment(db_path: str | Path, payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    product_id = int(payload["product_id"])
+    adjustment_type = str(payload["adjustment_type"]).strip()
+    reason = str(payload["reason"]).strip()
+    occurred_at = str(payload["occurred_at"]).strip()
+
+    if adjustment_type not in {"count", "loss"}:
+        raise ValueError("adjustment_type must be count or loss")
+    if not reason:
+        raise ValueError("reason is required")
+    if not occurred_at:
+        raise ValueError("occurred_at is required")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            product = connection.execute(
+                "SELECT * FROM products WHERE id = ? AND is_active = 1",
+                (product_id,),
+            ).fetchone()
+            if product is None:
+                raise ValueError("product_id does not exist")
+
+            current_stock = float(product["current_stock"])
+            if adjustment_type == "count":
+                actual_quantity = float(payload["actual_quantity"])
+                if actual_quantity < 0:
+                    raise ValueError("actual_quantity must not be negative")
+                quantity_after = actual_quantity
+                quantity_change = quantity_after - current_stock
+                record_type = "adjustment"
+                record_reason = f"inventory_count: {reason}"
+            else:
+                quantity = float(payload["quantity"])
+                if quantity <= 0:
+                    raise ValueError("quantity must be greater than 0")
+                if quantity > current_stock:
+                    raise ValueError("loss quantity exceeds current stock")
+                quantity_after = current_stock - quantity
+                quantity_change = -quantity
+                record_type = "loss"
+                record_reason = f"inventory_loss: {reason}"
+
+            connection.execute(
+                "UPDATE products SET current_stock = ? WHERE id = ?",
+                (quantity_after, product_id),
+            )
+            record_cursor = connection.execute(
+                """
+                INSERT INTO inventory_records
+                    (product_id, record_type, quantity_change, quantity_after, related_order_id, reason, occurred_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (product_id, record_type, quantity_change, quantity_after, None, record_reason, occurred_at),
+            )
+            updated_product = connection.execute(
+                "SELECT * FROM products WHERE id = ?",
+                (product_id,),
+            ).fetchone()
+            inventory_record = connection.execute(
+                "SELECT * FROM inventory_records WHERE id = ?",
+                (int(record_cursor.lastrowid),),
+            ).fetchone()
+
+    return {
+        "product": dict(updated_product),
+        "inventory_record": dict(inventory_record),
+    }
+
+
 def create_customer_storage(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
     values = _customer_storage_values(payload)
     with closing(connect(db_path)) as connection:

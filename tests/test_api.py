@@ -320,6 +320,78 @@ class ApiTest(unittest.TestCase):
         product = next(item for item in dashboard["products"] if item["id"] == 1)
         self.assertEqual(product["current_stock"], 3)
 
+    def test_create_inventory_count_adjusts_stock_and_records_difference(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, _, body = app.handle_post(
+                "/api/inventory-adjustments",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "adjustment_type": "count",
+                        "actual_quantity": 6,
+                        "reason": "月初盘点",
+                        "occurred_at": "2026-06-04",
+                    }
+                ),
+            )
+            payload = json.loads(body)
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(status, 201)
+        self.assertEqual(payload["inventory_record"]["record_type"], "adjustment")
+        self.assertEqual(payload["inventory_record"]["quantity_change"], 3)
+        self.assertEqual(payload["inventory_record"]["quantity_after"], 6)
+        product = next(item for item in dashboard["products"] if item["id"] == 1)
+        self.assertEqual(product["current_stock"], 6)
+
+    def test_create_inventory_loss_decreases_stock_and_rejects_excess_loss(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            success_status, _, success_body = app.handle_post(
+                "/api/inventory-adjustments",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "adjustment_type": "loss",
+                        "quantity": 2,
+                        "reason": "破损",
+                        "occurred_at": "2026-06-04",
+                    }
+                ),
+            )
+            success_payload = json.loads(success_body)
+
+            fail_status, _, fail_body = app.handle_post(
+                "/api/inventory-adjustments",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "adjustment_type": "loss",
+                        "quantity": 5,
+                        "reason": "过期",
+                        "occurred_at": "2026-06-04",
+                    }
+                ),
+            )
+            fail_payload = json.loads(fail_body)
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(success_status, 201)
+        self.assertEqual(success_payload["inventory_record"]["record_type"], "loss")
+        self.assertEqual(success_payload["inventory_record"]["quantity_change"], -2)
+        self.assertEqual(success_payload["inventory_record"]["quantity_after"], 1)
+        self.assertEqual(fail_status, 400)
+        self.assertEqual(fail_payload["error"], "invalid_inventory_adjustment")
+        product = next(item for item in dashboard["products"] if item["id"] == 1)
+        self.assertEqual(product["current_stock"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -47,6 +47,15 @@ const pickupStorageIdInput = document.querySelector("[data-pickup-storage-id]");
 const pickupSummary = document.querySelector("[data-pickup-summary]");
 const pickupDateInput = document.querySelector("[data-pickup-date]");
 const pickupMessage = document.querySelector("[data-pickup-message]");
+const inventoryAdjustmentModal = document.querySelector("[data-inventory-adjustment-modal]");
+const openInventoryAdjustmentButton = document.querySelector("[data-open-inventory-adjustment]");
+const closeInventoryAdjustmentButtons = document.querySelectorAll("[data-close-inventory-adjustment]");
+const inventoryAdjustmentForm = document.querySelector("[data-inventory-adjustment-form]");
+const inventoryProductSelect = document.querySelector("[data-inventory-product-select]");
+const inventoryAdjustmentDateInput = document.querySelector("[data-inventory-adjustment-date]");
+const inventoryAdjustmentMessage = document.querySelector("[data-inventory-adjustment-message]");
+const countPanel = document.querySelector("[data-count-panel]");
+const lossPanel = document.querySelector("[data-loss-panel]");
 
 let currentStorageRecords = [];
 
@@ -146,6 +155,7 @@ function renderPurchaseOptions(products, suppliers) {
     )).join("");
     productSelect.innerHTML = options;
     saleProductSelect.innerHTML = options;
+    inventoryProductSelect.innerHTML = options;
   }
 
   if (suppliers.length > 0) {
@@ -354,6 +364,19 @@ function bindPurchaseForm() {
     }
   });
   pickupForm.addEventListener("submit", submitStoragePickup);
+  inventoryAdjustmentDateInput.value = new Date().toISOString().slice(0, 10);
+  document.querySelectorAll("[data-inventory-mode-toggle]").forEach((input) => {
+    input.addEventListener("change", syncInventoryAdjustmentMode);
+  });
+  syncInventoryAdjustmentMode();
+  openInventoryAdjustmentButton.addEventListener("click", openInventoryAdjustmentModal);
+  closeInventoryAdjustmentButtons.forEach((button) => button.addEventListener("click", closeInventoryAdjustmentModal));
+  inventoryAdjustmentModal.addEventListener("click", (event) => {
+    if (event.target === inventoryAdjustmentModal) {
+      closeInventoryAdjustmentModal();
+    }
+  });
+  inventoryAdjustmentForm.addEventListener("submit", submitInventoryAdjustment);
 }
 
 function closePurchaseModal() {
@@ -681,6 +704,66 @@ async function submitSalesRecord(event) {
   } catch (error) {
     saleMessage.textContent = `出库失败：${error.message}`;
     saleMessage.className = "form-message error";
+  }
+}
+
+function openInventoryAdjustmentModal() {
+  inventoryAdjustmentModal.hidden = false;
+  inventoryAdjustmentDateInput.value = new Date().toISOString().slice(0, 10);
+  inventoryAdjustmentMessage.textContent = "提交后会生成库存调整流水，并刷新首页指标。";
+  inventoryAdjustmentMessage.className = "form-message";
+}
+
+function closeInventoryAdjustmentModal() {
+  inventoryAdjustmentModal.hidden = true;
+}
+
+function syncInventoryAdjustmentMode() {
+  const mode = inventoryAdjustmentForm.elements.adjustment_type.value;
+  countPanel.hidden = mode !== "count";
+  lossPanel.hidden = mode !== "loss";
+  inventoryAdjustmentForm.elements.reason.value = mode === "count" ? "月度盘点" : "破损";
+}
+
+async function submitInventoryAdjustment(event) {
+  event.preventDefault();
+  const formData = new FormData(inventoryAdjustmentForm);
+  const adjustmentType = String(formData.get("adjustment_type"));
+  const payload = {
+    product_id: Number(formData.get("product_id")),
+    adjustment_type: adjustmentType,
+    reason: String(formData.get("reason") || "").trim(),
+    occurred_at: String(formData.get("occurred_at"))
+  };
+
+  if (adjustmentType === "count") {
+    payload.actual_quantity = Number(formData.get("actual_quantity"));
+  } else {
+    payload.quantity = Number(formData.get("quantity"));
+  }
+
+  inventoryAdjustmentMessage.textContent = "正在提交库存调整...";
+  inventoryAdjustmentMessage.className = "form-message";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/inventory-adjustments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json();
+      throw new Error(errorPayload.message || `API returned ${response.status}`);
+    }
+
+    const result = await response.json();
+    inventoryAdjustmentMessage.textContent = `调整成功：库存变化 ${formatNumber(result.inventory_record.quantity_change)}，当前库存 ${formatNumber(result.inventory_record.quantity_after)}。`;
+    inventoryAdjustmentMessage.className = "form-message success";
+    await loadDashboard();
+  } catch (error) {
+    inventoryAdjustmentMessage.textContent = `调整失败：${error.message}`;
+    inventoryAdjustmentMessage.className = "form-message error";
   }
 }
 

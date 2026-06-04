@@ -84,6 +84,7 @@ POST /api/products
 POST /api/suppliers
 POST /api/purchase-orders
 POST /api/sales-records
+POST /api/inventory-adjustments
 POST /api/customer-storage
 POST /api/customer-storage/{id}/pickup
 PUT /api/customer-storage/{id}
@@ -125,6 +126,13 @@ Invoke-WebRequest `
 - 输入销售或消耗数量。
 - 提交后写入 `sales_records`，生成出库库存流水，并扣减当前库存。
 - 库存不足时后端会拒绝出库。
+
+库存盘点 / 损耗支持：
+
+- 库存盘点：输入实际盘点数量，系统自动计算账实差异并更新当前库存。
+- 损耗记录：记录破损、过期、试饮、赠饮等损耗原因，并扣减当前库存。
+- 所有盘点和损耗都会写入 `inventory_records`，便于后续 AI 分析损耗异常和账实不符。
+- 损耗数量超过当前库存时，后端会拒绝提交。
 
 首次启动会自动创建 SQLite 数据库：
 
