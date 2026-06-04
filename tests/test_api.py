@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from backend.db import initialize_database
 from backend.server import create_app
@@ -567,7 +568,7 @@ class ApiTest(unittest.TestCase):
             db_path = Path(tmpdir) / "bar.db"
             initialize_database(db_path)
             app = create_app(db_path)
-            staff_headers = {"X-User-Role": "staff", "X-User-Name": "吧台小李"}
+            staff_headers = {"X-User-Role": "staff", "X-User-Name": quote("吧台小李")}
 
             blocked_status, _, blocked_body = app.handle_post(
                 "/api/purchase-orders",
@@ -602,7 +603,7 @@ class ApiTest(unittest.TestCase):
             app.handle_post(
                 "/api/sales-records",
                 json.dumps({"product_id": 2, "quantity": 1, "sale_date": "2026-06-04"}),
-                {"X-User-Role": "staff", "X-User-Name": "吧台小李"},
+                {"X-User-Role": "staff", "X-User-Name": quote("吧台小李")},
             )
             logs = json.loads(app.handle_get("/api/operation-logs")[2])["items"]
 
@@ -617,7 +618,7 @@ class ApiTest(unittest.TestCase):
 
             status, _, body = app.handle_delete(
                 "/api/products/1",
-                {"X-User-Role": "admin", "X-User-Name": "店长"},
+                {"X-User-Role": "admin", "X-User-Name": quote("店长")},
             )
             backup_files = list((Path(tmpdir) / "backups").glob("bar_agent_backup_*.db"))
 

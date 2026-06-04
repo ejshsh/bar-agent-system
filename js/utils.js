@@ -89,9 +89,10 @@ async function postJson(path, payload) {
 }
 
 function authHeaders() {
+  const userName = localStorage.getItem("bar-user-name") || (getCurrentRole() === "admin" ? "管理员" : "店员");
   return {
     "X-User-Role": getCurrentRole(),
-    "X-User-Name": localStorage.getItem("bar-user-name") || (getCurrentRole() === "admin" ? "管理员" : "店员"),
+    "X-User-Name": encodeURIComponent(userName),
   };
 }
 

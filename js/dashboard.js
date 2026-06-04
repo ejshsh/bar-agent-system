@@ -342,9 +342,10 @@ function setLiveSummaryForDashboard(dashboard) {
   liveSummary.textContent = `已连接后端实时数据：快缺货 ${metrics.low_stock_count ?? 0}，库存积压 ${metrics.overstock_count ?? 0}，临期存酒 ${metrics.expiring_storage_count ?? 0}，AI 建议 ${metrics.agent_suggestion_count ?? 0}。`;
 }
 
-function setFallbackSummary() {
+function setFallbackSummary(error) {
   if (!liveSummary) { return; }
-  liveSummary.textContent = "后端未连接，当前显示演示数据。请确认 PowerShell 正在运行 python -m backend.server。";
+  const message = getConnectionErrorMessage(error);
+  liveSummary.textContent = `后端未连接，当前显示演示数据。错误：${message}`;
 }
 
 /* ───────── Dashboard data loading ───────── */
@@ -367,16 +368,25 @@ async function loadDashboard() {
     }
     removeOfflineBanner();
   } catch (error) {
+    console.error("Dashboard API connection failed:", error);
     setApiStatus("后端未连接", false);
-    setFallbackSummary();
-    showOfflineDashboard();
+    setFallbackSummary(error);
+    showOfflineDashboard(error);
   }
 }
 
-function showOfflineDashboard() {
+function getConnectionErrorMessage(error) {
+  if (!error) {
+    return "未知错误";
+  }
+  return error.message || String(error);
+}
+
+function showOfflineDashboard(error) {
+  const message = getConnectionErrorMessage(error);
   const brief = document.querySelector("[data-ai-brief]");
   if (brief) {
-    brief.innerHTML = `<p style="margin:0;">后端服务未启动或无法连接。请确认服务器正在运行：<code style="background:var(--parchment);padding:2px 6px;border-radius:4px;">python -m backend.server</code></p>`;
+    brief.innerHTML = `<p style="margin:0;">后端服务未启动或无法连接。错误：<code style="background:var(--parchment);padding:2px 6px;border-radius:4px;">${escapeHtml(message)}</code></p>`;
     brief.className = "ai-brief offline";
   }
   if (lastRefreshEl) {
@@ -386,7 +396,7 @@ function showOfflineDashboard() {
   if (grid && !document.querySelector(".dashboard-offline")) {
     const banner = document.createElement("div");
     banner.className = "dashboard-offline";
-    banner.textContent = "后端服务未连接 — 请在项目目录启动 python -m backend.server";
+    banner.textContent = `后端服务未连接 — ${message}`;
     grid.insertAdjacentElement("afterend", banner);
   }
 }

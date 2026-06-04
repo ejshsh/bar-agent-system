@@ -5,7 +5,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from .db import (
     approve_purchase,
@@ -503,7 +503,7 @@ class BarApi:
         role = normalized.get("x-user-role", "admin").strip().lower() or "admin"
         if role not in {"admin", "staff"}:
             role = "staff"
-        name = normalized.get("x-user-name", "system").strip() or "system"
+        name = unquote(normalized.get("x-user-name", "system").strip() or "system")
         return {"name": name, "role": role}
 
     def _is_admin(self, user: dict[str, str]) -> bool:

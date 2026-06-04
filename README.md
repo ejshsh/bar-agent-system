@@ -28,13 +28,19 @@ http://127.0.0.1:8000/api/dashboard
 
 如果后端未启动，页面会自动保留演示数据，并在顶部显示“演示数据”。
 
-直接用浏览器打开：
+推荐直接运行：
 
 ```text
-D:\doucments\酒吧项目\index.html
+start.bat
 ```
 
-也可以在项目目录启动本地静态服务器：
+脚本会启动后端 API 和前端静态服务，然后打开：
+
+```text
+http://127.0.0.1:8765/index.html
+```
+
+也可以手动在项目目录启动本地静态服务器：
 
 ```powershell
 python -m http.server 8765 --bind 127.0.0.1
