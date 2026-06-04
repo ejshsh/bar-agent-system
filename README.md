@@ -64,6 +64,8 @@ http://127.0.0.1:8765/index.html
 python -m backend.server
 ```
 
+如果后端已经在运行，修改代码后需要先停止旧 PowerShell 进程，再重新执行启动命令，否则浏览器仍会连到旧接口。
+
 默认地址：
 
 ```text
@@ -78,6 +80,8 @@ GET /api/dashboard
 GET /api/products
 GET /api/suppliers
 GET /api/customer-storage
+POST /api/products
+POST /api/suppliers
 POST /api/purchase-orders
 ```
 
@@ -93,6 +97,11 @@ Invoke-WebRequest `
 ```
 
 提交成功后，系统会写入采购单、生成 `inventory_records` 入库流水，并更新商品当前库存。前端点击“新增采购单”即可打开采购入库表单。
+
+采购入库表单支持两种方式：
+
+- 选择已有酒水商品和供应商。
+- 临时新建酒水商品和供应商，再直接完成本次采购入库。
 
 首次启动会自动创建 SQLite 数据库：
 

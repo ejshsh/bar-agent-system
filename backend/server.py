@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from .db import create_purchase_order, initialize_database, load_dataset
+from .db import create_product, create_purchase_order, create_supplier, initialize_database, load_dataset
 from .rules import build_dashboard
 
 
@@ -54,6 +54,18 @@ class BarApi:
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_purchase_order", "message": str(error)})
             return self._json(201, result)
+        if route == "/api/products":
+            try:
+                product = create_product(self.db_path, payload)
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_product", "message": str(error)})
+            return self._json(201, {"product": product})
+        if route == "/api/suppliers":
+            try:
+                supplier = create_supplier(self.db_path, payload)
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_supplier", "message": str(error)})
+            return self._json(201, {"supplier": supplier})
 
         return self._json(404, {"error": "not_found", "path": route})
 

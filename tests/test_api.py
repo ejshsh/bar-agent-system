@@ -66,6 +66,59 @@ class ApiTest(unittest.TestCase):
         product = next(item for item in dashboard["products"] if item["id"] == 1)
         self.assertEqual(product["current_stock"], 13)
 
+    def test_create_custom_product_and_supplier_then_purchase_inbound(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            product_status, _, product_body = app.handle_post(
+                "/api/products",
+                json.dumps(
+                    {
+                        "name": "自定义龙舌兰",
+                        "category": "龙舌兰",
+                        "safety_stock": 6,
+                        "current_stock": 0,
+                        "unit": "瓶",
+                    }
+                ),
+            )
+            supplier_status, _, supplier_body = app.handle_post(
+                "/api/suppliers",
+                json.dumps(
+                    {
+                        "name": "自定义供应商",
+                        "price_stability_score": 80,
+                        "average_delivery_days": 3,
+                    }
+                ),
+            )
+            product = json.loads(product_body)["product"]
+            supplier = json.loads(supplier_body)["supplier"]
+
+            purchase_status, _, purchase_body = app.handle_post(
+                "/api/purchase-orders",
+                json.dumps(
+                    {
+                        "product_id": product["id"],
+                        "supplier_id": supplier["id"],
+                        "quantity": 5,
+                        "unit_price": 188,
+                        "order_date": "2026-06-04",
+                    }
+                ),
+            )
+            purchase = json.loads(purchase_body)
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(product_status, 201)
+        self.assertEqual(supplier_status, 201)
+        self.assertEqual(purchase_status, 201)
+        self.assertEqual(purchase["inventory_record"]["quantity_after"], 5)
+        self.assertTrue(any(item["name"] == "自定义龙舌兰" for item in dashboard["products"]))
+        self.assertTrue(any(item["name"] == "自定义供应商" for item in dashboard["suppliers"]))
+
 
 if __name__ == "__main__":
     unittest.main()

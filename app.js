@@ -20,6 +20,10 @@ const purchaseMessage = document.querySelector("[data-purchase-message]");
 const productSelect = document.querySelector("[data-product-select]");
 const supplierSelect = document.querySelector("[data-supplier-select]");
 const orderDateInput = document.querySelector("[data-order-date]");
+const productExistingPanel = document.querySelector("[data-product-existing]");
+const productNewPanel = document.querySelector("[data-product-new]");
+const supplierExistingPanel = document.querySelector("[data-supplier-existing]");
+const supplierNewPanel = document.querySelector("[data-supplier-new]");
 
 let agentAnswers = {
   replenishment: {
@@ -268,6 +272,11 @@ function setFallbackSummary() {
 
 function bindPurchaseForm() {
   orderDateInput.value = new Date().toISOString().slice(0, 10);
+  document.querySelectorAll("[data-mode-toggle]").forEach((input) => {
+    input.addEventListener("change", syncPurchaseModePanels);
+  });
+  syncPurchaseModePanels();
+
   openPurchaseButton.addEventListener("click", () => {
     purchaseModal.hidden = false;
     purchaseMessage.textContent = "提交后会写入采购单、生成库存流水，并刷新首页指标。";
@@ -294,18 +303,19 @@ function closePurchaseModal() {
 async function submitPurchaseOrder(event) {
   event.preventDefault();
   const formData = new FormData(purchaseForm);
-  const payload = {
-    product_id: Number(formData.get("product_id")),
-    supplier_id: Number(formData.get("supplier_id")),
-    quantity: Number(formData.get("quantity")),
-    unit_price: Number(formData.get("unit_price")),
-    order_date: String(formData.get("order_date"))
-  };
-
   purchaseMessage.textContent = "正在提交入库...";
   purchaseMessage.className = "form-message";
 
   try {
+    const productId = await resolveProductId(formData);
+    const supplierId = await resolveSupplierId(formData);
+    const payload = {
+      product_id: productId,
+      supplier_id: supplierId,
+      quantity: Number(formData.get("quantity")),
+      unit_price: Number(formData.get("unit_price")),
+      order_date: String(formData.get("order_date"))
+    };
     const response = await fetch(`${API_BASE_URL}/api/purchase-orders`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -325,6 +335,58 @@ async function submitPurchaseOrder(event) {
     purchaseMessage.textContent = `入库失败：${error.message}`;
     purchaseMessage.className = "form-message error";
   }
+}
+
+function syncPurchaseModePanels() {
+  const productMode = purchaseForm.elements.product_mode.value;
+  const supplierMode = purchaseForm.elements.supplier_mode.value;
+  productExistingPanel.hidden = productMode !== "existing";
+  productNewPanel.hidden = productMode !== "new";
+  supplierExistingPanel.hidden = supplierMode !== "existing";
+  supplierNewPanel.hidden = supplierMode !== "new";
+}
+
+async function resolveProductId(formData) {
+  if (formData.get("product_mode") === "existing") {
+    return Number(formData.get("product_id"));
+  }
+
+  const product = await postJson("/api/products", {
+    name: String(formData.get("new_product_name") || "").trim(),
+    category: String(formData.get("new_product_category") || "未分类").trim(),
+    safety_stock: Number(formData.get("new_product_safety_stock") || 0),
+    current_stock: 0,
+    unit: String(formData.get("new_product_unit") || "瓶").trim()
+  });
+  return Number(product.product.id);
+}
+
+async function resolveSupplierId(formData) {
+  if (formData.get("supplier_mode") === "existing") {
+    return Number(formData.get("supplier_id"));
+  }
+
+  const supplier = await postJson("/api/suppliers", {
+    name: String(formData.get("new_supplier_name") || "").trim(),
+    average_delivery_days: Number(formData.get("new_supplier_delivery_days") || 3),
+    price_stability_score: 80
+  });
+  return Number(supplier.supplier.id);
+}
+
+async function postJson(path, payload) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    const errorPayload = await response.json();
+    throw new Error(errorPayload.message || `API returned ${response.status}`);
+  }
+
+  return response.json();
 }
 
 async function loadDashboard() {

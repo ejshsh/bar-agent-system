@@ -248,23 +248,69 @@
           <button class="icon-button" type="button" data-close-purchase aria-label="关闭采购单表单">×</button>
         </div>
         <form class="purchase-form" data-purchase-form>
-          <label>
-            酒水商品
-            <select name="product_id" required data-product-select>
-              <option value="1">百龄坛 12 年</option>
-              <option value="2">荔枝味预调酒</option>
-              <option value="3">精酿小麦啤</option>
-              <option value="4">金汤力基酒</option>
-            </select>
-          </label>
-          <label>
-            供应商
-            <select name="supplier_id" required data-supplier-select>
-              <option value="1">港岛酒业</option>
-              <option value="2">夜色供应链</option>
-              <option value="3">城市精酿</option>
-            </select>
-          </label>
+          <fieldset class="form-group">
+            <legend>酒水商品</legend>
+            <div class="segmented-control">
+              <label><input type="radio" name="product_mode" value="existing" checked data-mode-toggle="product"> 选择已有</label>
+              <label><input type="radio" name="product_mode" value="new" data-mode-toggle="product"> 新建商品</label>
+            </div>
+            <div class="mode-panel" data-product-existing>
+              <label>
+                选择酒水
+                <select name="product_id" data-product-select>
+                  <option value="1">百龄坛 12 年</option>
+                  <option value="2">荔枝味预调酒</option>
+                  <option value="3">精酿小麦啤</option>
+                  <option value="4">金汤力基酒</option>
+                </select>
+              </label>
+            </div>
+            <div class="mode-panel nested-grid" data-product-new hidden>
+              <label>
+                商品名称
+                <input name="new_product_name" type="text" placeholder="例如：自定义龙舌兰">
+              </label>
+              <label>
+                分类
+                <input name="new_product_category" type="text" value="威士忌">
+              </label>
+              <label>
+                安全库存
+                <input name="new_product_safety_stock" type="number" min="0" step="1" value="6">
+              </label>
+              <label>
+                单位
+                <input name="new_product_unit" type="text" value="瓶">
+              </label>
+            </div>
+          </fieldset>
+          <fieldset class="form-group">
+            <legend>供应商</legend>
+            <div class="segmented-control">
+              <label><input type="radio" name="supplier_mode" value="existing" checked data-mode-toggle="supplier"> 选择已有</label>
+              <label><input type="radio" name="supplier_mode" value="new" data-mode-toggle="supplier"> 新建供应商</label>
+            </div>
+            <div class="mode-panel" data-supplier-existing>
+              <label>
+                选择供应商
+                <select name="supplier_id" data-supplier-select>
+                  <option value="1">港岛酒业</option>
+                  <option value="2">夜色供应链</option>
+                  <option value="3">城市精酿</option>
+                </select>
+              </label>
+            </div>
+            <div class="mode-panel nested-grid" data-supplier-new hidden>
+              <label>
+                供应商名称
+                <input name="new_supplier_name" type="text" placeholder="例如：自定义供应商">
+              </label>
+              <label>
+                平均交付天数
+                <input name="new_supplier_delivery_days" type="number" min="0" step="0.1" value="3">
+              </label>
+            </div>
+          </fieldset>
           <label>
             入库数量
             <input name="quantity" type="number" min="1" step="1" value="10" required>

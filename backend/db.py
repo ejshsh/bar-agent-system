@@ -121,6 +121,66 @@ def load_dataset(db_path: str | Path) -> dict[str, list[dict[str, Any]]]:
         }
 
 
+def create_product(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    name = str(payload["name"]).strip()
+    category = str(payload.get("category", "未分类")).strip() or "未分类"
+    safety_stock = float(payload.get("safety_stock", 0))
+    current_stock = float(payload.get("current_stock", 0))
+    unit = str(payload.get("unit", "瓶")).strip() or "瓶"
+
+    if not name:
+        raise ValueError("name is required")
+    if safety_stock < 0:
+        raise ValueError("safety_stock must not be negative")
+    if current_stock < 0:
+        raise ValueError("current_stock must not be negative")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO products (name, category, safety_stock, current_stock, unit)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (name, category, safety_stock, current_stock, unit),
+            )
+            product = connection.execute(
+                "SELECT * FROM products WHERE id = ?",
+                (int(cursor.lastrowid),),
+            ).fetchone()
+
+    return dict(product)
+
+
+def create_supplier(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    name = str(payload["name"]).strip()
+    price_stability_score = float(payload.get("price_stability_score", 80))
+    average_delivery_days = float(payload.get("average_delivery_days", 3))
+
+    if not name:
+        raise ValueError("name is required")
+    if not 0 <= price_stability_score <= 100:
+        raise ValueError("price_stability_score must be between 0 and 100")
+    if average_delivery_days < 0:
+        raise ValueError("average_delivery_days must not be negative")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO suppliers (name, price_stability_score, average_delivery_days)
+                VALUES (?, ?, ?)
+                """,
+                (name, price_stability_score, average_delivery_days),
+            )
+            supplier = connection.execute(
+                "SELECT * FROM suppliers WHERE id = ?",
+                (int(cursor.lastrowid),),
+            ).fetchone()
+
+    return dict(supplier)
+
+
 def create_purchase_order(db_path: str | Path, payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     product_id = int(payload["product_id"])
     supplier_id = int(payload["supplier_id"])

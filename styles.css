@@ -685,6 +685,64 @@ h2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.form-group {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 14px;
+  grid-column: span 1;
+  margin: 0;
+  padding: 18px;
+}
+
+.form-group legend {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+.segmented-control {
+  background: var(--parchment);
+  border-radius: var(--radius-pill);
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.segmented-control label {
+  align-items: center;
+  border-radius: var(--radius-pill);
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  font-size: 14px;
+  gap: 6px;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 10px;
+}
+
+.segmented-control label:has(input:checked) {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+}
+
+.segmented-control input {
+  inline-size: 14px;
+  min-height: auto;
+}
+
+.mode-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.nested-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .purchase-form label {
   color: var(--ink-muted);
   display: grid;
@@ -828,6 +886,11 @@ h2 {
   }
 
   .purchase-form {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group,
+  .nested-grid {
     grid-template-columns: 1fr;
   }
 
