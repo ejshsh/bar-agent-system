@@ -61,6 +61,14 @@ CREATE TABLE IF NOT EXISTS customer_storage (
     days_until_expiry INTEGER NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1
 );
+
+CREATE TABLE IF NOT EXISTS storage_pickup_records (
+    id INTEGER PRIMARY KEY,
+    storage_id INTEGER NOT NULL,
+    quantity REAL NOT NULL,
+    remaining_after REAL NOT NULL,
+    picked_up_at TEXT NOT NULL
+);
 """
 
 
@@ -124,6 +132,7 @@ def load_dataset(db_path: str | Path) -> dict[str, list[dict[str, Any]]]:
             "purchase_orders": _fetch_all(connection, "SELECT * FROM purchase_orders ORDER BY id"),
             "inventory_records": _fetch_all(connection, "SELECT * FROM inventory_records ORDER BY id"),
             "customer_storage": _fetch_all(connection, "SELECT * FROM customer_storage WHERE is_active = 1 ORDER BY id"),
+            "storage_pickup_records": _fetch_all(connection, "SELECT * FROM storage_pickup_records ORDER BY id"),
         }
 
 
@@ -337,6 +346,56 @@ def update_customer_storage(db_path: str | Path, storage_id: int, payload: dict[
                 (storage_id,),
             ).fetchone()
     return dict(row)
+
+
+def pickup_customer_storage(db_path: str | Path, storage_id: int, payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    quantity = float(payload["quantity"])
+    picked_up_at = str(payload["picked_up_at"])
+
+    if quantity <= 0:
+        raise ValueError("quantity must be greater than 0")
+    if not picked_up_at.strip():
+        raise ValueError("picked_up_at is required")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            storage = connection.execute(
+                "SELECT * FROM customer_storage WHERE id = ? AND is_active = 1",
+                (storage_id,),
+            ).fetchone()
+            if storage is None:
+                raise ValueError("customer_storage id does not exist")
+
+            remaining_quantity = float(storage["remaining_quantity"])
+            if quantity > remaining_quantity:
+                raise ValueError("pickup quantity exceeds remaining quantity")
+
+            remaining_after = remaining_quantity - quantity
+            is_active = 1 if remaining_after > 0 else 0
+            connection.execute(
+                "UPDATE customer_storage SET remaining_quantity = ?, is_active = ? WHERE id = ?",
+                (remaining_after, is_active, storage_id),
+            )
+            cursor = connection.execute(
+                """
+                INSERT INTO storage_pickup_records (storage_id, quantity, remaining_after, picked_up_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (storage_id, quantity, remaining_after, picked_up_at),
+            )
+            updated_storage = connection.execute(
+                "SELECT * FROM customer_storage WHERE id = ?",
+                (storage_id,),
+            ).fetchone()
+            pickup_record = connection.execute(
+                "SELECT * FROM storage_pickup_records WHERE id = ?",
+                (int(cursor.lastrowid),),
+            ).fetchone()
+
+    return {
+        "customer_storage": dict(updated_storage),
+        "pickup_record": dict(pickup_record),
+    }
 
 
 def deactivate_product(db_path: str | Path, product_id: int) -> bool:

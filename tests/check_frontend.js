@@ -23,6 +23,9 @@ assert(script.includes("deleteCustomerStorage"));
 assert(script.includes("method = storageId ? \"PUT\" : \"POST\""));
 assert(script.includes("submitSalesRecord"));
 assert(script.includes("fetch(`${API_BASE_URL}/api/sales-records`"));
+assert(script.includes("submitStoragePickup"));
+assert(script.includes("data-pickup-storage"));
+assert(script.includes("/pickup`"));
 assert(script.includes("escapeHtml"));
 assert(html.includes("data-api-status"));
 assert(html.includes("data-live-summary"));
@@ -39,6 +42,8 @@ assert(html.includes("data-open-storage"));
 assert(html.includes("data-sale-modal"));
 assert(html.includes("data-sale-form"));
 assert(html.includes("data-open-sale"));
+assert(html.includes("data-pickup-modal"));
+assert(html.includes("data-pickup-form"));
 assert(html.includes("data-metric=\"low_stock_count\""));
 
 console.log("frontend checks passed");

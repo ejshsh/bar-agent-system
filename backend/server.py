@@ -17,6 +17,7 @@ from .db import (
     deactivate_supplier,
     initialize_database,
     load_dataset,
+    pickup_customer_storage,
     update_customer_storage,
 )
 from .rules import build_dashboard
@@ -93,6 +94,7 @@ class BarApi:
     def handle_post(self, path: str, body: str) -> tuple[int, dict[str, str], str]:
         route = urlparse(path).path
         initialize_database(self.db_path)
+        segments = [segment for segment in route.split("/") if segment]
 
         try:
             payload = json.loads(body or "{}")
@@ -123,6 +125,12 @@ class BarApi:
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_customer_storage", "message": str(error)})
             return self._json(201, {"customer_storage": customer_storage})
+        if len(segments) == 4 and segments[:2] == ["api", "customer-storage"] and segments[3] == "pickup":
+            try:
+                result = pickup_customer_storage(self.db_path, int(segments[2]), payload)
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_storage_pickup", "message": str(error)})
+            return self._json(201, result)
         if route == "/api/sales-records":
             try:
                 result = create_sales_record(self.db_path, payload)

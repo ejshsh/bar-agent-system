@@ -85,6 +85,7 @@ POST /api/suppliers
 POST /api/purchase-orders
 POST /api/sales-records
 POST /api/customer-storage
+POST /api/customer-storage/{id}/pickup
 PUT /api/customer-storage/{id}
 DELETE /api/customer-storage/{id}
 DELETE /api/products/{id}
@@ -114,6 +115,8 @@ Invoke-WebRequest `
 
 - 新增客户存酒。
 - 编辑客户姓名、存酒名称、剩余酒量和到期天数。
+- 取酒核销，会扣减剩余酒量；核销数量不能超过当前剩余量。
+- 剩余酒量扣到 0 后，该存酒会从当前有效存酒列表中隐藏，核销记录保留在数据库中。
 - 删除客户存酒记录。删除采用软删除，历史数据不直接物理移除。
 
 销售出库支持：

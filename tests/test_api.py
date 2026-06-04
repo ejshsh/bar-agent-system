@@ -206,6 +206,71 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(json.loads(delete_body)["deleted"])
         self.assertFalse(any(item["customer_name"] == "王先生VIP" for item in dashboard["customer_storage"]))
 
+    def test_pickup_customer_storage_reduces_remaining_quantity(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            created = json.loads(
+                app.handle_post(
+                    "/api/customer-storage",
+                    json.dumps(
+                        {
+                            "customer_name": "赵先生",
+                            "product_name": "黑牌威士忌",
+                            "remaining_quantity": 5,
+                            "days_until_expiry": 18,
+                        }
+                    ),
+                )[2]
+            )["customer_storage"]
+
+            status, _, body = app.handle_post(
+                f"/api/customer-storage/{created['id']}/pickup",
+                json.dumps({"quantity": 2, "picked_up_at": "2026-06-04"}),
+            )
+            payload = json.loads(body)
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(status, 201)
+        self.assertEqual(payload["pickup_record"]["quantity"], 2)
+        self.assertEqual(payload["customer_storage"]["remaining_quantity"], 3)
+        stored = next(item for item in dashboard["customer_storage"] if item["id"] == created["id"])
+        self.assertEqual(stored["remaining_quantity"], 3)
+
+    def test_pickup_customer_storage_rejects_excess_quantity(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            created = json.loads(
+                app.handle_post(
+                    "/api/customer-storage",
+                    json.dumps(
+                        {
+                            "customer_name": "钱女士",
+                            "product_name": "香槟",
+                            "remaining_quantity": 1,
+                            "days_until_expiry": 12,
+                        }
+                    ),
+                )[2]
+            )["customer_storage"]
+
+            status, _, body = app.handle_post(
+                f"/api/customer-storage/{created['id']}/pickup",
+                json.dumps({"quantity": 2, "picked_up_at": "2026-06-04"}),
+            )
+            payload = json.loads(body)
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "invalid_storage_pickup")
+        stored = next(item for item in dashboard["customer_storage"] if item["id"] == created["id"])
+        self.assertEqual(stored["remaining_quantity"], 1)
+
     def test_create_sales_record_decreases_stock_and_records_inventory(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "bar.db"

@@ -40,6 +40,13 @@ const saleForm = document.querySelector("[data-sale-form]");
 const saleProductSelect = document.querySelector("[data-sale-product-select]");
 const saleDateInput = document.querySelector("[data-sale-date]");
 const saleMessage = document.querySelector("[data-sale-message]");
+const pickupModal = document.querySelector("[data-pickup-modal]");
+const closePickupButtons = document.querySelectorAll("[data-close-pickup]");
+const pickupForm = document.querySelector("[data-pickup-form]");
+const pickupStorageIdInput = document.querySelector("[data-pickup-storage-id]");
+const pickupSummary = document.querySelector("[data-pickup-summary]");
+const pickupDateInput = document.querySelector("[data-pickup-date]");
+const pickupMessage = document.querySelector("[data-pickup-message]");
 
 let currentStorageRecords = [];
 
@@ -200,6 +207,7 @@ function renderStorage(records) {
           <p>剩余 ${formatNumber(item.remaining_quantity)}，${item.days_until_expiry} 天后到期，建议进入客户召回池。</p>
         </div>
         <div class="row-actions">
+          <button class="button secondary small" type="button" data-pickup-storage="${item.id}">取酒</button>
           <button class="button secondary small" type="button" data-edit-storage="${item.id}">编辑</button>
           <button class="button danger small" type="button" data-delete-storage="${item.id}">删除</button>
         </div>
@@ -338,6 +346,14 @@ function bindPurchaseForm() {
     }
   });
   saleForm.addEventListener("submit", submitSalesRecord);
+  pickupDateInput.value = new Date().toISOString().slice(0, 10);
+  closePickupButtons.forEach((button) => button.addEventListener("click", closePickupModal));
+  pickupModal.addEventListener("click", (event) => {
+    if (event.target === pickupModal) {
+      closePickupModal();
+    }
+  });
+  pickupForm.addEventListener("submit", submitStoragePickup);
 }
 
 function closePurchaseModal() {
@@ -471,6 +487,15 @@ async function deleteResource(path, successMessage) {
 }
 
 function bindStorageRowActions() {
+  document.querySelectorAll("[data-pickup-storage]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const record = currentStorageRecords.find((item) => String(item.id) === button.dataset.pickupStorage);
+      if (record) {
+        openPickupModal(record);
+      }
+    });
+  });
+
   document.querySelectorAll("[data-edit-storage]").forEach((button) => {
     button.addEventListener("click", () => {
       const record = currentStorageRecords.find((item) => String(item.id) === button.dataset.editStorage);
@@ -562,6 +587,56 @@ async function deleteCustomerStorage(storageId) {
     await loadDashboard();
   } catch (error) {
     alert(`删除失败：${error.message}`);
+  }
+}
+
+function openPickupModal(record) {
+  pickupModal.hidden = false;
+  pickupForm.reset();
+  pickupStorageIdInput.value = record.id;
+  pickupDateInput.value = new Date().toISOString().slice(0, 10);
+  pickupForm.elements.quantity.max = record.remaining_quantity;
+  pickupForm.elements.quantity.value = Math.min(1, Number(record.remaining_quantity) || 1);
+  pickupSummary.textContent = `${record.customer_name} · ${record.product_name}，当前剩余 ${formatNumber(record.remaining_quantity)}。`;
+  pickupMessage.textContent = "提交后会扣减客户剩余存酒量，并刷新临期提醒。";
+  pickupMessage.className = "form-message";
+}
+
+function closePickupModal() {
+  pickupModal.hidden = true;
+}
+
+async function submitStoragePickup(event) {
+  event.preventDefault();
+  const formData = new FormData(pickupForm);
+  const storageId = String(formData.get("storage_id") || "");
+  const payload = {
+    quantity: Number(formData.get("quantity")),
+    picked_up_at: String(formData.get("picked_up_at"))
+  };
+
+  pickupMessage.textContent = "正在核销取酒...";
+  pickupMessage.className = "form-message";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/customer-storage/${storageId}/pickup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json();
+      throw new Error(errorPayload.message || `API returned ${response.status}`);
+    }
+
+    const result = await response.json();
+    pickupMessage.textContent = `取酒成功：剩余 ${formatNumber(result.customer_storage.remaining_quantity)}。`;
+    pickupMessage.className = "form-message success";
+    await loadDashboard();
+  } catch (error) {
+    pickupMessage.textContent = `取酒失败：${error.message}`;
+    pickupMessage.className = "form-message error";
   }
 }
 
