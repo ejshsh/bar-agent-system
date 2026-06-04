@@ -38,6 +38,34 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
         self.assertEqual(payload["error"], "not_found")
 
+    def test_create_purchase_order_increases_stock_and_records_inventory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, headers, body = app.handle_post(
+                "/api/purchase-orders",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "supplier_id": 1,
+                        "quantity": 10,
+                        "unit_price": 210,
+                        "order_date": "2026-06-04",
+                    }
+                ),
+            )
+            payload = json.loads(body)
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(status, 201)
+        self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
+        self.assertEqual(payload["purchase_order"]["quantity"], 10)
+        self.assertEqual(payload["inventory_record"]["quantity_change"], 10)
+        product = next(item for item in dashboard["products"] if item["id"] == 1)
+        self.assertEqual(product["current_stock"], 13)
+
 
 if __name__ == "__main__":
     unittest.main()

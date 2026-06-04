@@ -78,7 +78,21 @@ GET /api/dashboard
 GET /api/products
 GET /api/suppliers
 GET /api/customer-storage
+POST /api/purchase-orders
 ```
+
+采购入库接口示例：
+
+```powershell
+Invoke-WebRequest `
+  -UseBasicParsing `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body '{"product_id":1,"supplier_id":1,"quantity":10,"unit_price":210,"order_date":"2026-06-04"}' `
+  "http://127.0.0.1:8000/api/purchase-orders"
+```
+
+提交成功后，系统会写入采购单、生成 `inventory_records` 入库流水，并更新商品当前库存。前端点击“新增采购单”即可打开采购入库表单。
 
 首次启动会自动创建 SQLite 数据库：
 

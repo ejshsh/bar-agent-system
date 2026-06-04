@@ -12,6 +12,14 @@ const storageList = document.querySelector("[data-storage-list]");
 const activityList = document.querySelector("[data-activity-list]");
 const supplierTable = document.querySelector("[data-supplier-table]");
 const liveSummary = document.querySelector("[data-live-summary]");
+const purchaseModal = document.querySelector("[data-purchase-modal]");
+const openPurchaseButton = document.querySelector("[data-open-purchase]");
+const closePurchaseButtons = document.querySelectorAll("[data-close-purchase]");
+const purchaseForm = document.querySelector("[data-purchase-form]");
+const purchaseMessage = document.querySelector("[data-purchase-message]");
+const productSelect = document.querySelector("[data-product-select]");
+const supplierSelect = document.querySelector("[data-supplier-select]");
+const orderDateInput = document.querySelector("[data-order-date]");
 
 let agentAnswers = {
   replenishment: {
@@ -94,11 +102,26 @@ function renderAgentAnswer(answer) {
 
 function renderDashboard(dashboard) {
   renderMetrics(dashboard.metrics);
+  renderPurchaseOptions(dashboard.products || [], dashboard.suppliers || []);
   renderInventory(dashboard);
   renderStorage(dashboard.expiring_storage || []);
   renderSuppliers(dashboard.suppliers || []);
   renderAgentSuggestions(dashboard.agent_suggestions || []);
   renderActivities(dashboard.activity_suggestions || []);
+}
+
+function renderPurchaseOptions(products, suppliers) {
+  if (products.length > 0) {
+    productSelect.innerHTML = products.map((item) => (
+      `<option value="${item.id}">${escapeHtml(item.name)}</option>`
+    )).join("");
+  }
+
+  if (suppliers.length > 0) {
+    supplierSelect.innerHTML = suppliers.map((item) => (
+      `<option value="${item.id}">${escapeHtml(item.name)}</option>`
+    )).join("");
+  }
 }
 
 function renderMetrics(metrics) {
@@ -243,6 +266,67 @@ function setFallbackSummary() {
   liveSummary.textContent = "后端未连接，当前显示演示数据。请确认 PowerShell 正在运行 python -m backend.server。";
 }
 
+function bindPurchaseForm() {
+  orderDateInput.value = new Date().toISOString().slice(0, 10);
+  openPurchaseButton.addEventListener("click", () => {
+    purchaseModal.hidden = false;
+    purchaseMessage.textContent = "提交后会写入采购单、生成库存流水，并刷新首页指标。";
+    purchaseMessage.className = "form-message";
+  });
+
+  closePurchaseButtons.forEach((button) => {
+    button.addEventListener("click", closePurchaseModal);
+  });
+
+  purchaseModal.addEventListener("click", (event) => {
+    if (event.target === purchaseModal) {
+      closePurchaseModal();
+    }
+  });
+
+  purchaseForm.addEventListener("submit", submitPurchaseOrder);
+}
+
+function closePurchaseModal() {
+  purchaseModal.hidden = true;
+}
+
+async function submitPurchaseOrder(event) {
+  event.preventDefault();
+  const formData = new FormData(purchaseForm);
+  const payload = {
+    product_id: Number(formData.get("product_id")),
+    supplier_id: Number(formData.get("supplier_id")),
+    quantity: Number(formData.get("quantity")),
+    unit_price: Number(formData.get("unit_price")),
+    order_date: String(formData.get("order_date"))
+  };
+
+  purchaseMessage.textContent = "正在提交入库...";
+  purchaseMessage.className = "form-message";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/purchase-orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json();
+      throw new Error(errorPayload.message || `API returned ${response.status}`);
+    }
+
+    const result = await response.json();
+    purchaseMessage.textContent = `入库成功：库存增加 ${formatNumber(result.inventory_record.quantity_change)}，当前库存 ${formatNumber(result.inventory_record.quantity_after)}。`;
+    purchaseMessage.className = "form-message success";
+    await loadDashboard();
+  } catch (error) {
+    purchaseMessage.textContent = `入库失败：${error.message}`;
+    purchaseMessage.className = "form-message error";
+  }
+}
+
 async function loadDashboard() {
   setApiStatus("连接数据中", false);
 
@@ -281,4 +365,5 @@ function escapeHtml(value) {
 bindNavigation();
 bindAgentQuestions();
 bindActivityCards();
+bindPurchaseForm();
 loadDashboard();

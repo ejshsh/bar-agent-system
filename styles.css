@@ -192,6 +192,21 @@ button {
   padding: 8px 16px;
 }
 
+.icon-button {
+  align-items: center;
+  background: var(--parchment);
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 24px;
+  height: 44px;
+  justify-content: center;
+  line-height: 1;
+  width: 44px;
+}
+
 .tile-light,
 .tile-white,
 .tile-parchment,
@@ -626,6 +641,98 @@ h2 {
   margin: 0;
 }
 
+.modal-backdrop {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.38);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 20;
+}
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.purchase-modal {
+  background: var(--canvas);
+  border-radius: var(--radius-lg);
+  color: var(--ink);
+  max-height: calc(100vh - 48px);
+  max-width: 720px;
+  overflow: auto;
+  padding: 28px;
+  width: 100%;
+}
+
+.modal-heading {
+  align-items: start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.modal-heading h2 {
+  font-size: 34px;
+}
+
+.purchase-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.purchase-form label {
+  color: var(--ink-muted);
+  display: grid;
+  font-size: 14px;
+  gap: 8px;
+}
+
+.purchase-form input,
+.purchase-form select {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: inherit;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.purchase-form input:focus,
+.purchase-form select:focus {
+  border-color: var(--primary);
+  outline: 2px solid rgba(0, 102, 204, 0.18);
+}
+
+.form-message {
+  background: var(--parchment);
+  border-radius: var(--radius-sm);
+  color: var(--ink-muted);
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.form-message.success {
+  color: var(--primary);
+}
+
+.form-message.error {
+  color: #bf4800;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
 @media (max-width: 1024px) {
   h2 {
     font-size: 40px;
@@ -718,6 +825,15 @@ h2 {
     flex-direction: column;
     gap: 16px;
     padding: 40px 24px;
+  }
+
+  .purchase-form {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
