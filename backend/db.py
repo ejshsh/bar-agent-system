@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta
@@ -131,7 +132,30 @@ CREATE TABLE IF NOT EXISTS budgets (
     amount REAL NOT NULL,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_users (
+    username TEXT PRIMARY KEY,
+    role TEXT NOT NULL,
+    display_name TEXT NOT NULL,
+    password_hash TEXT NOT NULL
+);
 """
+
+
+DEFAULT_APP_SETTINGS = {
+    "bar_name": "Bar Agent",
+    "default_safety_stock": "10",
+}
+
+DEFAULT_APP_USERS = {
+    "admin": {"password": "admin123", "role": "admin", "display_name": "管理员"},
+    "staff": {"password": "staff123", "role": "staff", "display_name": "店员"},
+}
 
 
 SEED_ROWS = {
@@ -237,6 +261,8 @@ def initialize_database(db_path: str | Path) -> None:
             _ensure_column(connection, "operation_logs", "user_name", "TEXT NOT NULL DEFAULT 'system'")
             _ensure_column(connection, "operation_logs", "user_role", "TEXT NOT NULL DEFAULT 'admin'")
             _ensure_budgets_index(connection)
+            _ensure_app_settings(connection)
+            _ensure_app_users(connection)
             if _table_is_empty(connection, "products"):
                 _seed_database(connection)
 
@@ -937,6 +963,29 @@ def _ensure_budgets_index(connection: sqlite3.Connection) -> None:
         pass
 
 
+def _hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def _ensure_app_settings(connection: sqlite3.Connection) -> None:
+    for key, value in DEFAULT_APP_SETTINGS.items():
+        connection.execute(
+            "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
+            (key, value),
+        )
+
+
+def _ensure_app_users(connection: sqlite3.Connection) -> None:
+    for username, user in DEFAULT_APP_USERS.items():
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO app_users (username, role, display_name, password_hash)
+            VALUES (?, ?, ?, ?)
+            """,
+            (username, user["role"], user["display_name"], _hash_password(user["password"])),
+        )
+
+
 def _seed_database(connection: sqlite3.Connection) -> None:
     connection.executemany(
         "INSERT INTO products (id, name, category, safety_stock, current_stock, unit) VALUES (?, ?, ?, ?, ?, ?)",
@@ -998,6 +1047,85 @@ def insert_operation_log(
 def get_operation_logs(db_path: str | Path, limit: int = 50) -> list[dict[str, Any]]:
     with closing(connect(db_path)) as connection:
         return _fetch_all(connection, "SELECT * FROM operation_logs ORDER BY id DESC LIMIT ?", (limit,))
+
+
+def get_app_settings(db_path: str | Path) -> dict[str, Any]:
+    initialize_database(db_path)
+    with closing(connect(db_path)) as connection:
+        settings_rows = _fetch_all(connection, "SELECT key, value FROM app_settings")
+        users = _fetch_all(connection, "SELECT username, role, display_name FROM app_users ORDER BY username")
+
+    settings = {row["key"]: row["value"] for row in settings_rows}
+    return {
+        "bar_name": settings.get("bar_name", DEFAULT_APP_SETTINGS["bar_name"]),
+        "default_safety_stock": float(settings.get("default_safety_stock", DEFAULT_APP_SETTINGS["default_safety_stock"])),
+        "users": {
+            user["username"]: {
+                "role": user["role"],
+                "display_name": user["display_name"],
+            }
+            for user in users
+        },
+    }
+
+
+def get_app_user(db_path: str | Path, username: str) -> dict[str, Any] | None:
+    initialize_database(db_path)
+    with closing(connect(db_path)) as connection:
+        row = connection.execute(
+            "SELECT * FROM app_users WHERE username = ?",
+            (username,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def password_matches(password: str, password_hash: str) -> bool:
+    return _hash_password(password) == password_hash
+
+
+def update_app_settings(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    bar_name = str(payload.get("bar_name", "")).strip()
+    if not bar_name:
+        raise ValueError("bar_name is required")
+    default_safety_stock = float(payload.get("default_safety_stock", 0))
+    if default_safety_stock < 0:
+        raise ValueError("default_safety_stock must not be negative")
+
+    users = payload.get("users", {})
+    if not isinstance(users, dict):
+        raise ValueError("users must be an object")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('bar_name', ?)",
+                (bar_name,),
+            )
+            connection.execute(
+                "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('default_safety_stock', ?)",
+                (str(default_safety_stock),),
+            )
+
+            for username in ("admin", "staff"):
+                user_payload = users.get(username, {})
+                if not isinstance(user_payload, dict):
+                    continue
+                display_name = str(user_payload.get("display_name", "")).strip()
+                password = str(user_payload.get("password", ""))
+                if display_name:
+                    connection.execute(
+                        "UPDATE app_users SET display_name = ? WHERE username = ?",
+                        (display_name, username),
+                    )
+                if password:
+                    if len(password) < 4:
+                        raise ValueError("password must be at least 4 characters")
+                    connection.execute(
+                        "UPDATE app_users SET password_hash = ? WHERE username = ?",
+                        (_hash_password(password), username),
+                    )
+
+    return get_app_settings(db_path)
 
 
 def batch_create_purchase_orders(db_path: str | Path, items: list[dict[str, Any]]) -> dict[str, Any]:

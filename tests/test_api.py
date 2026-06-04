@@ -626,6 +626,64 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(json.loads(body)["deleted"])
         self.assertTrue(backup_files)
 
+    def test_settings_can_update_bar_defaults_and_passwords(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            get_status, _, get_body = app.handle_get("/api/settings")
+            update_status, _, update_body = app.handle_put(
+                "/api/settings",
+                json.dumps(
+                    {
+                        "bar_name": "夜航酒吧",
+                        "default_safety_stock": 18,
+                        "users": {
+                            "admin": {"display_name": "店长", "password": "new-admin"},
+                            "staff": {"display_name": "吧台", "password": "new-staff"},
+                        },
+                    }
+                ),
+                {"X-User-Role": "admin", "X-User-Name": quote("店长")},
+            )
+            settings = json.loads(update_body)["settings"]
+            new_login_status, _, new_login_body = app.handle_post(
+                "/api/auth/login",
+                json.dumps({"username": "admin", "password": "new-admin"}),
+            )
+            old_login_status, _, old_login_body = app.handle_post(
+                "/api/auth/login",
+                json.dumps({"username": "admin", "password": "admin123"}),
+            )
+
+        self.assertEqual(get_status, 200)
+        self.assertEqual(json.loads(get_body)["settings"]["bar_name"], "Bar Agent")
+        self.assertEqual(update_status, 200)
+        self.assertEqual(settings["bar_name"], "夜航酒吧")
+        self.assertEqual(settings["default_safety_stock"], 18)
+        self.assertEqual(settings["users"]["admin"]["display_name"], "店长")
+        self.assertNotIn("password", settings["users"]["admin"])
+        self.assertEqual(new_login_status, 200)
+        self.assertEqual(json.loads(new_login_body)["user"]["display_name"], "店长")
+        self.assertEqual(old_login_status, 401)
+        self.assertEqual(json.loads(old_login_body)["error"], "invalid_credentials")
+
+    def test_staff_cannot_update_settings(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, _, body = app.handle_put(
+                "/api/settings",
+                json.dumps({"bar_name": "不应保存"}),
+                {"X-User-Role": "staff", "X-User-Name": quote("吧台")},
+            )
+
+        self.assertEqual(status, 403)
+        self.assertEqual(json.loads(body)["error"], "forbidden")
+
 
 if __name__ == "__main__":
     unittest.main()

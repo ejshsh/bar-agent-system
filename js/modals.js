@@ -7,6 +7,10 @@ function bindPurchaseForm() {
     purchaseModal.hidden = false;
     purchaseMessage.textContent = "";
     purchaseMessage.className = "form-message";
+    const safetyInput = purchaseForm.elements.new_product_safety_stock;
+    if (safetyInput) {
+      safetyInput.value = String(currentAppSettings.default_safety_stock || 10);
+    }
     loadReplenishmentPanel();
     loadBudgetStatusBar();
   });
@@ -1448,6 +1452,13 @@ function bindNewFeatureButtons() {
     pdfExportBtn.addEventListener("click", () => window.print());
   }
 
+  openSettingsButton?.addEventListener("click", openSettingsModal);
+  closeSettingsButtons.forEach((button) => button.addEventListener("click", closeSettingsModal));
+  settingsModal?.addEventListener("click", (event) => {
+    if (event.target === settingsModal) closeSettingsModal();
+  });
+  settingsForm?.addEventListener("submit", submitSettings);
+
   document.querySelector("[data-open-approval]")?.addEventListener("click", openApprovalModal);
   document.querySelectorAll("[data-close-approval]").forEach(b => b.addEventListener("click", closeApprovalModal));
   const approvalModal = document.querySelector("[data-approval-modal]");
@@ -1508,6 +1519,86 @@ function bindNewFeatureButtons() {
       generateTodayReportFromDashboard();
     }
   });
+}
+
+/* ───────── System settings modal ───────── */
+
+async function openSettingsModal() {
+  settingsModal.hidden = false;
+  settingsMessage.textContent = "加载设置中...";
+  settingsMessage.className = "form-message";
+  try {
+    await loadAppSettings();
+  } catch (error) {
+    settingsMessage.textContent = `加载失败：${error.message}`;
+    settingsMessage.className = "form-message error";
+  }
+
+  settingsForm.elements.bar_name.value = currentAppSettings.bar_name || "Bar Agent";
+  settingsForm.elements.default_safety_stock.value = currentAppSettings.default_safety_stock ?? 10;
+  settingsForm.elements.admin_display_name.value = currentAppSettings.users?.admin?.display_name || "管理员";
+  settingsForm.elements.staff_display_name.value = currentAppSettings.users?.staff?.display_name || "店员";
+  settingsForm.elements.admin_password.value = "";
+  settingsForm.elements.staff_password.value = "";
+
+  const isAdmin = getCurrentRole() === "admin";
+  settingsForm.querySelectorAll("input").forEach((input) => {
+    input.disabled = !isAdmin;
+  });
+  settingsForm.querySelector("button[type='submit']").disabled = !isAdmin;
+  settingsMessage.textContent = isAdmin
+    ? "保存后会立即更新页面名称和新增酒水默认安全库存。"
+    : "当前是店员模式，只能查看设置；修改设置需要管理员。";
+  settingsMessage.className = "form-message";
+}
+
+function closeSettingsModal() {
+  settingsModal.hidden = true;
+}
+
+async function submitSettings(event) {
+  event.preventDefault();
+  const submitButton = settingsForm.querySelector("button[type='submit']");
+  submitButton.disabled = true;
+  settingsMessage.textContent = "保存中...";
+  settingsMessage.className = "form-message";
+
+  const formData = new FormData(settingsForm);
+  const payload = {
+    bar_name: String(formData.get("bar_name") || "").trim(),
+    default_safety_stock: Number(formData.get("default_safety_stock") || 0),
+    users: {
+      admin: {
+        display_name: String(formData.get("admin_display_name") || "").trim(),
+        password: String(formData.get("admin_password") || ""),
+      },
+      staff: {
+        display_name: String(formData.get("staff_display_name") || "").trim(),
+        password: String(formData.get("staff_password") || ""),
+      },
+    },
+  };
+
+  try {
+    const result = await apiFetch("/api/settings", { method: "PUT", body: payload });
+    applyAppSettings(result.settings || {});
+    const role = getCurrentRole();
+    const displayName = result.settings?.users?.[role]?.display_name;
+    if (displayName) {
+      setCurrentUserName(displayName);
+      document.querySelector(".nav-utility").textContent = role === "admin" ? "管理员" : "店员";
+    }
+    settingsForm.elements.admin_password.value = "";
+    settingsForm.elements.staff_password.value = "";
+    settingsMessage.textContent = "系统设置已保存。";
+    settingsMessage.className = "form-message success";
+    showToast("系统设置已保存", "success");
+  } catch (error) {
+    settingsMessage.textContent = `保存失败：${error.message}`;
+    settingsMessage.className = "form-message error";
+  } finally {
+    submitButton.disabled = getCurrentRole() !== "admin";
+  }
 }
 
 /* ───────── Batch outbound modal ───────── */

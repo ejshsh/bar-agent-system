@@ -28,6 +28,8 @@ from .db import (
     deactivate_supplier,
     delete_agent_report,
     delete_purchase_order,
+    get_app_settings,
+    get_app_user,
     get_backup_info,
     get_agent_report,
     get_agent_reports,
@@ -42,9 +44,11 @@ from .db import (
     initialize_database,
     insert_operation_log,
     load_dataset,
+    password_matches,
     pickup_customer_storage,
     reject_purchase,
     set_monthly_budget,
+    update_app_settings,
     update_customer_storage,
 )
 from .ai_agent import ask_deepseek
@@ -76,6 +80,9 @@ class BarApi:
         if route == "/api/health":
             return self._json(200, {"status": "ok", "service": "bar-agent-api"})
 
+        if route == "/api/settings":
+            return self._json(200, {"settings": get_app_settings(self.db_path)})
+
         if route == "/docs" or route == "/docs/":
             return self._serve_docs()
 
@@ -85,6 +92,7 @@ class BarApi:
             dashboard = build_dashboard(dataset)
             dashboard["products"] = dataset["products"]
             dashboard["customer_storage"] = dataset["customer_storage"]
+            dashboard["settings"] = get_app_settings(self.db_path)
             now = datetime.now()
             budget_row = get_monthly_budget(self.db_path, now.year, now.month)
             spent = get_monthly_spent(self.db_path, now.year, now.month)
@@ -285,6 +293,14 @@ class BarApi:
             result = set_monthly_budget(self.db_path, b_year, b_month, amount)
             self._log(user, "set_budget", "budgets", None, f"设置预算 {b_year}-{b_month:02d} = ¥{amount}")
             return self._json(200, {"budget": result})
+
+        if route == "/api/settings":
+            try:
+                settings = update_app_settings(self.db_path, payload)
+            except (TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_settings", "message": str(error)})
+            self._log(user, "update", "settings", None, "更新系统设置")
+            return self._json(200, {"settings": settings})
 
         return self._json(404, {"error": "not_found", "path": route})
 
@@ -487,8 +503,8 @@ class BarApi:
     def _login(self, payload: dict[str, Any]) -> tuple[int, dict[str, str], str]:
         username = str(payload.get("username", "")).strip()
         password = str(payload.get("password", ""))
-        record = LOCAL_USERS.get(username)
-        if record is None or record["password"] != password:
+        record = get_app_user(self.db_path, username)
+        if record is None or not password_matches(password, record["password_hash"]):
             return self._json(401, {"error": "invalid_credentials"})
         user = {
             "username": username,

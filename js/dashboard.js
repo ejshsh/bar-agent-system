@@ -2,6 +2,9 @@
 
 function renderDashboard(dashboard) {
   currentDashboardData = dashboard;
+  if (dashboard.settings) {
+    applyAppSettings(dashboard.settings);
+  }
   updateAlertBar(dashboard);
   renderMetrics(dashboard.metrics);
   renderTodayMetrics(dashboard.metrics, dashboard.today);

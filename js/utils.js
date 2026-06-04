@@ -88,6 +88,32 @@ async function postJson(path, payload) {
   return apiFetch(path, { method: "POST", body: payload });
 }
 
+async function loadAppSettings() {
+  const payload = await apiFetch("/api/settings");
+  applyAppSettings(payload.settings || {});
+  return currentAppSettings;
+}
+
+function applyAppSettings(settings) {
+  currentAppSettings = {
+    ...currentAppSettings,
+    ...settings,
+    users: {
+      ...currentAppSettings.users,
+      ...(settings.users || {}),
+    },
+  };
+  const barName = currentAppSettings.bar_name || "Bar Agent";
+  document.querySelectorAll("[data-brand-name], [data-bar-name]").forEach((node) => {
+    node.textContent = barName;
+  });
+  document.title = `${barName} · 酒水 AI Agent 经营驾驶舱`;
+  const safetyInput = document.querySelector("input[name='new_product_safety_stock']");
+  if (safetyInput && !safetyInput.value) {
+    safetyInput.value = String(currentAppSettings.default_safety_stock || 10);
+  }
+}
+
 function authHeaders() {
   const userName = localStorage.getItem("bar-user-name") || (getCurrentRole() === "admin" ? "管理员" : "店员");
   return {

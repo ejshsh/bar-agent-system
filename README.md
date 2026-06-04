@@ -106,6 +106,7 @@ GET /api/agent-reports/{id}
 GET /api/backup/info
 GET /api/operation-logs
 GET /api/budget?year={year}&month={month}
+GET /api/settings
 POST /api/auth/login
 POST /api/products
 POST /api/suppliers
@@ -124,6 +125,7 @@ POST /api/backup
 POST /api/import
 PUT /api/customer-storage/{id}
 PUT /api/budget
+PUT /api/settings
 DELETE /api/customer-storage/{id}
 DELETE /api/agent-reports/{id}
 DELETE /api/products/{id}
@@ -196,6 +198,14 @@ Invoke-WebRequest `
 - `operation_logs` 会记录操作人和角色，便于追溯。
 - 删除商品、供应商、客户存酒、报告、采购单等危险操作前会自动创建数据库备份。
 - 顶部“吧台工作台”提供店员常用入口：快速出库、客户存酒和 Agent 问答。
+
+系统设置：
+
+- 在顶部“更多 → 系统设置”中维护酒吧名称、默认安全库存、管理员显示名/密码和店员显示名/密码。
+- 酒吧名称会同步到页面品牌和浏览器标题。
+- 默认安全库存会作为“采购入库 → 新建酒水”的安全库存默认值。
+- 密码以哈希形式保存在本地 SQLite 数据库，不会通过 `GET /api/settings` 返回明文。
+- 修改设置需要管理员权限；店员只能查看。
 
 DeepSeek 配置：
 

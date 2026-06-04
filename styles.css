@@ -2154,6 +2154,24 @@ h2 {
   line-height: 1.5;
 }
 
+.settings-users {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.settings-user-block {
+  background: var(--parchment);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+
+.settings-user-block h3 {
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+
 .modal-actions {
   display: flex;
   gap: 12px;

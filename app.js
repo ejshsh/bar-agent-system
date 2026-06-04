@@ -84,6 +84,11 @@ const reportList = document.querySelector("[data-report-list]");
 const staffWorkspaceModal = document.querySelector("[data-staff-workspace-modal]");
 const openStaffWorkspaceButton = document.querySelector("[data-open-staff-workspace]");
 const closeStaffWorkspaceButtons = document.querySelectorAll("[data-close-staff-workspace]");
+const settingsModal = document.querySelector("[data-settings-modal]");
+const openSettingsButton = document.querySelector("[data-open-settings]");
+const closeSettingsButtons = document.querySelectorAll("[data-close-settings]");
+const settingsForm = document.querySelector("[data-settings-form]");
+const settingsMessage = document.querySelector("[data-settings-message]");
 const agentInput = document.querySelector("[data-agent-input]");
 const agentAskButton = document.querySelector("[data-agent-ask]");
 const agentResult = document.querySelector("[data-agent-result]");
@@ -101,6 +106,14 @@ let dashboardTrendChart = null;
 let currentReplenishmentData = [];
 let currentReportData = null;
 let inventoryFullData = { lowStock: [], overstock: [] };
+let currentAppSettings = {
+  bar_name: "Bar Agent",
+  default_safety_stock: 10,
+  users: {
+    admin: { display_name: "管理员", role: "admin" },
+    staff: { display_name: "店员", role: "staff" },
+  },
+};
 
 let agentAnswers = {
   replenishment: {
