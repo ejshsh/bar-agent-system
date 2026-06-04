@@ -58,7 +58,8 @@ CREATE TABLE IF NOT EXISTS customer_storage (
     customer_name TEXT NOT NULL,
     product_name TEXT NOT NULL,
     remaining_quantity REAL NOT NULL,
-    days_until_expiry INTEGER NOT NULL
+    days_until_expiry INTEGER NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1
 );
 """
 
@@ -109,6 +110,7 @@ def initialize_database(db_path: str | Path) -> None:
             _ensure_purchase_order_quantity(connection)
             _ensure_column(connection, "products", "is_active", "INTEGER NOT NULL DEFAULT 1")
             _ensure_column(connection, "suppliers", "is_active", "INTEGER NOT NULL DEFAULT 1")
+            _ensure_column(connection, "customer_storage", "is_active", "INTEGER NOT NULL DEFAULT 1")
             if _table_is_empty(connection, "products"):
                 _seed_database(connection)
 
@@ -121,7 +123,7 @@ def load_dataset(db_path: str | Path) -> dict[str, list[dict[str, Any]]]:
             "sales_records": _fetch_all(connection, "SELECT * FROM sales_records ORDER BY id"),
             "purchase_orders": _fetch_all(connection, "SELECT * FROM purchase_orders ORDER BY id"),
             "inventory_records": _fetch_all(connection, "SELECT * FROM inventory_records ORDER BY id"),
-            "customer_storage": _fetch_all(connection, "SELECT * FROM customer_storage ORDER BY id"),
+            "customer_storage": _fetch_all(connection, "SELECT * FROM customer_storage WHERE is_active = 1 ORDER BY id"),
         }
 
 
@@ -244,6 +246,45 @@ def create_purchase_order(db_path: str | Path, payload: dict[str, Any]) -> dict[
     }
 
 
+def create_customer_storage(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    values = _customer_storage_values(payload)
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO customer_storage (customer_name, product_name, remaining_quantity, days_until_expiry)
+                VALUES (?, ?, ?, ?)
+                """,
+                values,
+            )
+            row = connection.execute(
+                "SELECT * FROM customer_storage WHERE id = ?",
+                (int(cursor.lastrowid),),
+            ).fetchone()
+    return dict(row)
+
+
+def update_customer_storage(db_path: str | Path, storage_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    values = _customer_storage_values(payload)
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                """
+                UPDATE customer_storage
+                SET customer_name = ?, product_name = ?, remaining_quantity = ?, days_until_expiry = ?
+                WHERE id = ? AND is_active = 1
+                """,
+                (*values, storage_id),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError("customer_storage id does not exist")
+            row = connection.execute(
+                "SELECT * FROM customer_storage WHERE id = ?",
+                (storage_id,),
+            ).fetchone()
+    return dict(row)
+
+
 def deactivate_product(db_path: str | Path, product_id: int) -> bool:
     with closing(connect(db_path)) as connection:
         with connection:
@@ -262,6 +303,34 @@ def deactivate_supplier(db_path: str | Path, supplier_id: int) -> bool:
                 (supplier_id,),
             )
     return cursor.rowcount > 0
+
+
+def deactivate_customer_storage(db_path: str | Path, storage_id: int) -> bool:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                "UPDATE customer_storage SET is_active = 0 WHERE id = ? AND is_active = 1",
+                (storage_id,),
+            )
+    return cursor.rowcount > 0
+
+
+def _customer_storage_values(payload: dict[str, Any]) -> tuple[str, str, float, int]:
+    customer_name = str(payload["customer_name"]).strip()
+    product_name = str(payload["product_name"]).strip()
+    remaining_quantity = float(payload["remaining_quantity"])
+    days_until_expiry = int(payload["days_until_expiry"])
+
+    if not customer_name:
+        raise ValueError("customer_name is required")
+    if not product_name:
+        raise ValueError("product_name is required")
+    if remaining_quantity < 0:
+        raise ValueError("remaining_quantity must not be negative")
+    if days_until_expiry < 0:
+        raise ValueError("days_until_expiry must not be negative")
+
+    return customer_name, product_name, remaining_quantity, days_until_expiry
 
 
 def _table_is_empty(connection: sqlite3.Connection, table: str) -> bool:

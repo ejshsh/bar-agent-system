@@ -26,6 +26,15 @@ const supplierExistingPanel = document.querySelector("[data-supplier-existing]")
 const supplierNewPanel = document.querySelector("[data-supplier-new]");
 const deleteProductButton = document.querySelector("[data-delete-product]");
 const deleteSupplierButton = document.querySelector("[data-delete-supplier]");
+const storageModal = document.querySelector("[data-storage-modal]");
+const openStorageButton = document.querySelector("[data-open-storage]");
+const closeStorageButtons = document.querySelectorAll("[data-close-storage]");
+const storageForm = document.querySelector("[data-storage-form]");
+const storageTitle = document.querySelector("[data-storage-title]");
+const storageMessage = document.querySelector("[data-storage-message]");
+const storageIdInput = document.querySelector("[data-storage-id]");
+
+let currentStorageRecords = [];
 
 let agentAnswers = {
   replenishment: {
@@ -110,7 +119,7 @@ function renderDashboard(dashboard) {
   renderMetrics(dashboard.metrics);
   renderPurchaseOptions(dashboard.products || [], dashboard.suppliers || []);
   renderInventory(dashboard);
-  renderStorage(dashboard.expiring_storage || []);
+  renderStorage(dashboard.customer_storage || dashboard.expiring_storage || []);
   renderSuppliers(dashboard.suppliers || []);
   renderAgentSuggestions(dashboard.agent_suggestions || []);
   renderActivities(dashboard.activity_suggestions || []);
@@ -171,6 +180,7 @@ function renderInventory(dashboard) {
 }
 
 function renderStorage(records) {
+  currentStorageRecords = records;
   storageList.innerHTML = records.map((item, index) => {
     const dotClass = index === 0 ? "urgent" : "";
     return `
@@ -180,10 +190,14 @@ function renderStorage(records) {
           <h3>${escapeHtml(item.customer_name)} · ${escapeHtml(item.product_name)}</h3>
           <p>剩余 ${formatNumber(item.remaining_quantity)}，${item.days_until_expiry} 天后到期，建议进入客户召回池。</p>
         </div>
-        <button class="button secondary small" type="button">通知</button>
+        <div class="row-actions">
+          <button class="button secondary small" type="button" data-edit-storage="${item.id}">编辑</button>
+          <button class="button danger small" type="button" data-delete-storage="${item.id}">删除</button>
+        </div>
       </article>
     `;
   }).join("");
+  bindStorageRowActions();
 }
 
 function renderSuppliers(suppliers) {
@@ -298,6 +312,14 @@ function bindPurchaseForm() {
   purchaseForm.addEventListener("submit", submitPurchaseOrder);
   deleteProductButton.addEventListener("click", deleteSelectedProduct);
   deleteSupplierButton.addEventListener("click", deleteSelectedSupplier);
+  openStorageButton.addEventListener("click", () => openStorageModal());
+  closeStorageButtons.forEach((button) => button.addEventListener("click", closeStorageModal));
+  storageModal.addEventListener("click", (event) => {
+    if (event.target === storageModal) {
+      closeStorageModal();
+    }
+  });
+  storageForm.addEventListener("submit", submitCustomerStorage);
 }
 
 function closePurchaseModal() {
@@ -427,6 +449,101 @@ async function deleteResource(path, successMessage) {
   } catch (error) {
     purchaseMessage.textContent = `删除失败：${error.message}`;
     purchaseMessage.className = "form-message error";
+  }
+}
+
+function bindStorageRowActions() {
+  document.querySelectorAll("[data-edit-storage]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const record = currentStorageRecords.find((item) => String(item.id) === button.dataset.editStorage);
+      if (record) {
+        openStorageModal(record);
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-delete-storage]").forEach((button) => {
+    button.addEventListener("click", () => deleteCustomerStorage(button.dataset.deleteStorage));
+  });
+}
+
+function openStorageModal(record) {
+  storageModal.hidden = false;
+  storageForm.reset();
+  storageMessage.textContent = "保存后会刷新客户存酒提醒和 dashboard 指标。";
+  storageMessage.className = "form-message";
+
+  if (record) {
+    storageTitle.textContent = "编辑客户存酒";
+    storageIdInput.value = record.id;
+    storageForm.elements.customer_name.value = record.customer_name;
+    storageForm.elements.product_name.value = record.product_name;
+    storageForm.elements.remaining_quantity.value = record.remaining_quantity;
+    storageForm.elements.days_until_expiry.value = record.days_until_expiry;
+  } else {
+    storageTitle.textContent = "新增客户存酒";
+    storageIdInput.value = "";
+    storageForm.elements.remaining_quantity.value = "1";
+    storageForm.elements.days_until_expiry.value = "30";
+  }
+}
+
+function closeStorageModal() {
+  storageModal.hidden = true;
+}
+
+async function submitCustomerStorage(event) {
+  event.preventDefault();
+  const formData = new FormData(storageForm);
+  const storageId = String(formData.get("storage_id") || "");
+  const payload = {
+    customer_name: String(formData.get("customer_name") || "").trim(),
+    product_name: String(formData.get("product_name") || "").trim(),
+    remaining_quantity: Number(formData.get("remaining_quantity")),
+    days_until_expiry: Number(formData.get("days_until_expiry"))
+  };
+
+  storageMessage.textContent = "正在保存客户存酒...";
+  storageMessage.className = "form-message";
+
+  try {
+    const path = storageId ? `/api/customer-storage/${storageId}` : "/api/customer-storage";
+    const method = storageId ? "PUT" : "POST";
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json();
+      throw new Error(errorPayload.message || `API returned ${response.status}`);
+    }
+
+    storageMessage.textContent = storageId ? "客户存酒已更新。" : "客户存酒已新增。";
+    storageMessage.className = "form-message success";
+    await loadDashboard();
+  } catch (error) {
+    storageMessage.textContent = `保存失败：${error.message}`;
+    storageMessage.className = "form-message error";
+  }
+}
+
+async function deleteCustomerStorage(storageId) {
+  const record = currentStorageRecords.find((item) => String(item.id) === String(storageId));
+  const name = record ? `${record.customer_name} · ${record.product_name}` : "这条客户存酒";
+  if (!confirm(`确认删除「${name}」吗？`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/customer-storage/${storageId}`, { method: "DELETE" });
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
+    await loadDashboard();
+  } catch (error) {
+    alert(`删除失败：${error.message}`);
   }
 }
 

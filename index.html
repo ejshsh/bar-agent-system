@@ -140,6 +140,7 @@
           <p class="eyebrow blue">Customer Storage</p>
           <h2>客户存酒，不再靠记忆。</h2>
           <p>存酒凭证、剩余酒量、到期提醒和异常记录统一管理，适合召回的客户会自动进入运营视野。</p>
+          <button class="button primary section-action" type="button" data-open-storage>新增客户存酒</button>
         </div>
         <div class="storage-panel" data-storage-list>
           <article class="storage-item">
@@ -329,6 +330,42 @@
           <div class="modal-actions">
             <button class="button secondary" type="button" data-close-purchase>取消</button>
             <button class="button primary" type="submit">提交入库</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" data-storage-modal hidden>
+      <section class="purchase-modal" role="dialog" aria-modal="true" aria-labelledby="storage-modal-title">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow blue">Customer Storage</p>
+            <h2 id="storage-modal-title" data-storage-title>新增客户存酒</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-storage aria-label="关闭客户存酒表单">×</button>
+        </div>
+        <form class="purchase-form" data-storage-form>
+          <input type="hidden" name="storage_id" data-storage-id>
+          <label>
+            客户姓名
+            <input name="customer_name" type="text" required placeholder="例如：王先生">
+          </label>
+          <label>
+            存酒名称
+            <input name="product_name" type="text" required placeholder="例如：皇家礼炮">
+          </label>
+          <label>
+            剩余酒量
+            <input name="remaining_quantity" type="number" min="0" step="0.1" value="1" required>
+          </label>
+          <label>
+            距到期天数
+            <input name="days_until_expiry" type="number" min="0" step="1" value="30" required>
+          </label>
+          <p class="form-message" data-storage-message>保存后会刷新客户存酒提醒和 dashboard 指标。</p>
+          <div class="modal-actions">
+            <button class="button secondary" type="button" data-close-storage>取消</button>
+            <button class="button primary" type="submit">保存客户存酒</button>
           </div>
         </form>
       </section>

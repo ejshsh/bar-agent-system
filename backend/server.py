@@ -10,10 +10,13 @@ from .db import (
     create_product,
     create_purchase_order,
     create_supplier,
+    create_customer_storage,
+    deactivate_customer_storage,
     deactivate_product,
     deactivate_supplier,
     initialize_database,
     load_dataset,
+    update_customer_storage,
 )
 from .rules import build_dashboard
 
@@ -37,6 +40,7 @@ class BarApi:
         if route == "/api/dashboard":
             dashboard = build_dashboard(dataset)
             dashboard["products"] = dataset["products"]
+            dashboard["customer_storage"] = dataset["customer_storage"]
             return self._json(200, dashboard)
         if route == "/api/products":
             return self._json(200, {"items": dataset["products"]})
@@ -59,6 +63,29 @@ class BarApi:
         if len(segments) == 3 and segments[:2] == ["api", "suppliers"]:
             deleted = deactivate_supplier(self.db_path, int(segments[2]))
             return self._json(200 if deleted else 404, {"deleted": deleted})
+
+        if len(segments) == 3 and segments[:2] == ["api", "customer-storage"]:
+            deleted = deactivate_customer_storage(self.db_path, int(segments[2]))
+            return self._json(200 if deleted else 404, {"deleted": deleted})
+
+        return self._json(404, {"error": "not_found", "path": route})
+
+    def handle_put(self, path: str, body: str) -> tuple[int, dict[str, str], str]:
+        route = urlparse(path).path
+        initialize_database(self.db_path)
+        segments = [segment for segment in route.split("/") if segment]
+
+        try:
+            payload = json.loads(body or "{}")
+        except json.JSONDecodeError:
+            return self._json(400, {"error": "invalid_json"})
+
+        if len(segments) == 3 and segments[:2] == ["api", "customer-storage"]:
+            try:
+                customer_storage = update_customer_storage(self.db_path, int(segments[2]), payload)
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_customer_storage", "message": str(error)})
+            return self._json(200, {"customer_storage": customer_storage})
 
         return self._json(404, {"error": "not_found", "path": route})
 
@@ -89,6 +116,12 @@ class BarApi:
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_supplier", "message": str(error)})
             return self._json(201, {"supplier": supplier})
+        if route == "/api/customer-storage":
+            try:
+                customer_storage = create_customer_storage(self.db_path, payload)
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_customer_storage", "message": str(error)})
+            return self._json(201, {"customer_storage": customer_storage})
 
         return self._json(404, {"error": "not_found", "path": route})
 
@@ -130,12 +163,24 @@ def make_handler(app: BarApi) -> type[BaseHTTPRequestHandler]:
         def do_OPTIONS(self) -> None:
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
             self.end_headers()
 
         def do_DELETE(self) -> None:
             status, headers, response_body = app.handle_delete(self.path)
+            encoded = response_body.encode("utf-8")
+            self.send_response(status)
+            for key, value in headers.items():
+                self.send_header(key, value)
+            self.send_header("Content-Length", str(len(encoded)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+        def do_PUT(self) -> None:
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length).decode("utf-8")
+            status, headers, response_body = app.handle_put(self.path, body)
             encoded = response_body.encode("utf-8")
             self.send_response(status)
             for key, value in headers.items():

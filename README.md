@@ -83,6 +83,9 @@ GET /api/customer-storage
 POST /api/products
 POST /api/suppliers
 POST /api/purchase-orders
+POST /api/customer-storage
+PUT /api/customer-storage/{id}
+DELETE /api/customer-storage/{id}
 DELETE /api/products/{id}
 DELETE /api/suppliers/{id}
 ```
@@ -105,6 +108,12 @@ Invoke-WebRequest `
 - 选择已有酒水商品和供应商。
 - 临时新建酒水商品和供应商，再直接完成本次采购入库。
 - 删除选中的酒水商品或供应商。删除采用软删除，历史采购和库存流水不会被破坏，删除后的条目不再出现在选择列表中。
+
+客户存酒管理支持：
+
+- 新增客户存酒。
+- 编辑客户姓名、存酒名称、剩余酒量和到期天数。
+- 删除客户存酒记录。删除采用软删除，历史数据不直接物理移除。
 
 首次启动会自动创建 SQLite 数据库：
 

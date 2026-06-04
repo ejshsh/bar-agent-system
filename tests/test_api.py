@@ -163,6 +163,49 @@ class ApiTest(unittest.TestCase):
         self.assertFalse(any(item["name"] == "待删除酒水" for item in dashboard["products"]))
         self.assertFalse(any(item["name"] == "待删除供应商" for item in dashboard["suppliers"]))
 
+    def test_create_update_and_delete_customer_storage(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            create_status, _, create_body = app.handle_post(
+                "/api/customer-storage",
+                json.dumps(
+                    {
+                        "customer_name": "王先生",
+                        "product_name": "自带香槟",
+                        "remaining_quantity": 1,
+                        "days_until_expiry": 20,
+                    }
+                ),
+            )
+            created = json.loads(create_body)["customer_storage"]
+
+            update_status, _, update_body = app.handle_put(
+                f"/api/customer-storage/{created['id']}",
+                json.dumps(
+                    {
+                        "customer_name": "王先生VIP",
+                        "product_name": "自带香槟",
+                        "remaining_quantity": 0.5,
+                        "days_until_expiry": 9,
+                    }
+                ),
+            )
+            updated = json.loads(update_body)["customer_storage"]
+
+            delete_status, _, delete_body = app.handle_delete(f"/api/customer-storage/{created['id']}")
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(create_status, 201)
+        self.assertEqual(update_status, 200)
+        self.assertEqual(delete_status, 200)
+        self.assertEqual(updated["customer_name"], "王先生VIP")
+        self.assertEqual(updated["remaining_quantity"], 0.5)
+        self.assertTrue(json.loads(delete_body)["deleted"])
+        self.assertFalse(any(item["customer_name"] == "王先生VIP" for item in dashboard["customer_storage"]))
+
 
 if __name__ == "__main__":
     unittest.main()

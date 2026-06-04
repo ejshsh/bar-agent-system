@@ -308,6 +308,10 @@ h2 {
   text-align: center;
 }
 
+.section-action {
+  margin-top: 22px;
+}
+
 .section-heading p:last-child {
   color: var(--ink-muted);
   font-size: 17px;
@@ -551,6 +555,13 @@ h2 {
   gap: 18px;
   grid-template-columns: 14px minmax(0, 1fr) auto;
   padding: 20px 24px;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .status-dot {
@@ -871,7 +882,8 @@ h2 {
     grid-template-columns: 14px minmax(0, 1fr);
   }
 
-  .storage-item .button {
+  .storage-item .button,
+  .storage-item .row-actions {
     grid-column: 2;
     justify-self: start;
   }
