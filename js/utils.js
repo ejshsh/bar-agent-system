@@ -48,7 +48,10 @@ const API_RETRY_DELAY_MS = 800;
 async function apiFetch(path, options = {}) {
   const { method, body, retries = API_MAX_RETRIES, timeoutMs = 15000 } = options;
   const url = `${API_BASE_URL}${path}`;
-  const headers = body ? { "Content-Type": "application/json" } : {};
+  const headers = { ...authHeaders() };
+  if (body) {
+    headers["Content-Type"] = "application/json";
+  }
 
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -83,6 +86,13 @@ async function apiFetch(path, options = {}) {
 
 async function postJson(path, payload) {
   return apiFetch(path, { method: "POST", body: payload });
+}
+
+function authHeaders() {
+  return {
+    "X-User-Role": getCurrentRole(),
+    "X-User-Name": localStorage.getItem("bar-user-name") || (getCurrentRole() === "admin" ? "管理员" : "店员"),
+  };
 }
 
 /* ───────── Toast notification ───────── */
@@ -768,6 +778,21 @@ function setCurrentRole(role) {
   localStorage.setItem(ROLE_KEY, role);
 }
 
+function setCurrentUserName(name) {
+  localStorage.setItem("bar-user-name", name || (getCurrentRole() === "admin" ? "管理员" : "店员"));
+}
+
+async function loginAsRole(role, password) {
+  const payload = await apiFetch("/api/auth/login", {
+    method: "POST",
+    body: { username: role, password },
+    retries: 0,
+  });
+  setCurrentRole(payload.user.role);
+  setCurrentUserName(payload.user.display_name);
+  return payload.user;
+}
+
 function isAdmin() {
   return getCurrentRole() === "admin";
 }
@@ -831,15 +856,15 @@ function openRoleSwitchModal() {
       <div style="display:grid;gap:14px;">
         <p class="form-message">当前角色：<strong>${isCurrentlyAdmin ? "管理员" : "店员"}</strong></p>
         <button class="button ${isCurrentlyAdmin ? 'secondary' : 'primary'}" type="button" data-switch-to="staff">
-          ${isCurrentlyAdmin ? "切换到店员模式" : "✓ 店员模式"}
+          ${isCurrentlyAdmin ? "切换到店员模式（需密码）" : "✓ 店员模式"}
         </button>
         <button class="button ${isCurrentlyAdmin ? 'primary' : 'secondary'}" type="button" data-switch-to="admin">
           ${isCurrentlyAdmin ? "✓ 管理员模式" : "切换到管理员（需密码）"}
         </button>
-        <div data-admin-password-row hidden style="display:grid;gap:6px;">
-          <label style="font-size:13px;color:var(--ink-muted);">管理员密码（默认: admin123）</label>
-          <input type="password" data-admin-password-input style="border:1px solid var(--hairline);border-radius:var(--radius-sm);font:inherit;min-height:40px;padding:8px 10px;">
-          <button class="button primary small" type="button" data-confirm-admin>确认</button>
+        <div data-login-row hidden style="display:grid;gap:6px;">
+          <label style="font-size:13px;color:var(--ink-muted);" data-login-label>密码</label>
+          <input type="password" data-login-password-input style="border:1px solid var(--hairline);border-radius:var(--radius-sm);font:inherit;min-height:40px;padding:8px 10px;">
+          <button class="button primary small" type="button" data-confirm-login>确认</button>
         </div>
         <p class="form-message" data-role-message></p>
       </div>
@@ -852,25 +877,37 @@ function openRoleSwitchModal() {
   });
   backdrop.querySelector("[data-close-role]")?.addEventListener("click", () => backdrop.remove());
 
+  let pendingRole = null;
+  const showLogin = (role) => {
+    pendingRole = role;
+    const row = backdrop.querySelector("[data-login-row]");
+    const label = backdrop.querySelector("[data-login-label]");
+    const input = backdrop.querySelector("[data-login-password-input]");
+    label.textContent = role === "admin" ? "管理员密码（默认: admin123）" : "店员密码（默认: staff123）";
+    row.hidden = false;
+    input.value = "";
+    input.focus();
+  };
+
   backdrop.querySelector("[data-switch-to='staff']")?.addEventListener("click", () => {
-    setCurrentRole("staff");
-    location.reload();
+    if (!isCurrentlyAdmin) return;
+    showLogin("staff");
   });
 
   backdrop.querySelector("[data-switch-to='admin']")?.addEventListener("click", () => {
     if (isCurrentlyAdmin) return;
-    const row = backdrop.querySelector("[data-admin-password-row]");
-    row.hidden = false;
+    showLogin("admin");
   });
 
-  backdrop.querySelector("[data-confirm-admin]")?.addEventListener("click", () => {
-    const pwd = backdrop.querySelector("[data-admin-password-input]")?.value || "";
-    if (pwd === "admin123") {
-      setCurrentRole("admin");
+  backdrop.querySelector("[data-confirm-login]")?.addEventListener("click", async () => {
+    const pwd = backdrop.querySelector("[data-login-password-input]")?.value || "";
+    if (!pendingRole) return;
+    try {
+      await loginAsRole(pendingRole, pwd);
       location.reload();
-    } else {
+    } catch (error) {
       const msg = backdrop.querySelector("[data-role-message]");
-      msg.textContent = "密码错误。";
+      msg.textContent = `登录失败：${error.message}`;
       msg.className = "form-message error";
     }
   });

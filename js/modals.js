@@ -1832,4 +1832,30 @@ function bindExtraActions() {
   });
 
   bindBudgetModal();
+  openStaffWorkspaceButton?.addEventListener("click", openStaffWorkspace);
+  closeStaffWorkspaceButtons.forEach(b => b.addEventListener("click", closeStaffWorkspace));
+  staffWorkspaceModal?.addEventListener("click", e => {
+    if (e.target === staffWorkspaceModal) closeStaffWorkspace();
+  });
+  document.querySelector("[data-staff-open-pos]")?.addEventListener("click", () => {
+    closeStaffWorkspace();
+    openPOSModal();
+  });
+  document.querySelector("[data-staff-open-storage]")?.addEventListener("click", () => {
+    closeStaffWorkspace();
+    document.querySelector(".nav-link:nth-child(3)")?.click();
+  });
+  document.querySelector("[data-staff-open-agent]")?.addEventListener("click", () => {
+    closeStaffWorkspace();
+    document.querySelector(".nav-link:nth-child(5)")?.click();
+    agentInput?.focus();
+  });
+}
+
+function openStaffWorkspace() {
+  if (staffWorkspaceModal) staffWorkspaceModal.hidden = false;
+}
+
+function closeStaffWorkspace() {
+  if (staffWorkspaceModal) staffWorkspaceModal.hidden = true;
 }

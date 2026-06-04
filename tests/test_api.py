@@ -540,6 +540,91 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(empty_status, 400)
         self.assertEqual(json.loads(empty_body)["error"], "invalid_agent_ask")
 
+    def test_login_returns_role_context_and_rejects_bad_password(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            ok_status, _, ok_body = app.handle_post(
+                "/api/auth/login",
+                json.dumps({"username": "admin", "password": "admin123"}),
+            )
+            bad_status, _, bad_body = app.handle_post(
+                "/api/auth/login",
+                json.dumps({"username": "admin", "password": "wrong"}),
+            )
+
+        ok_payload = json.loads(ok_body)
+        self.assertEqual(ok_status, 200)
+        self.assertEqual(ok_payload["user"]["role"], "admin")
+        self.assertTrue(ok_payload["token"])
+        self.assertEqual(bad_status, 401)
+        self.assertEqual(json.loads(bad_body)["error"], "invalid_credentials")
+
+    def test_staff_role_can_sell_but_cannot_purchase(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+            staff_headers = {"X-User-Role": "staff", "X-User-Name": "吧台小李"}
+
+            blocked_status, _, blocked_body = app.handle_post(
+                "/api/purchase-orders",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "supplier_id": 1,
+                        "quantity": 1,
+                        "unit_price": 210,
+                        "order_date": "2026-06-04",
+                    }
+                ),
+                staff_headers,
+            )
+            sale_status, _, sale_body = app.handle_post(
+                "/api/sales-records",
+                json.dumps({"product_id": 2, "quantity": 1, "sale_date": "2026-06-04"}),
+                staff_headers,
+            )
+
+        self.assertEqual(blocked_status, 403)
+        self.assertEqual(json.loads(blocked_body)["error"], "forbidden")
+        self.assertEqual(sale_status, 201)
+        self.assertEqual(json.loads(sale_body)["sales_record"]["quantity"], 1)
+
+    def test_operation_log_records_actor_context(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            app.handle_post(
+                "/api/sales-records",
+                json.dumps({"product_id": 2, "quantity": 1, "sale_date": "2026-06-04"}),
+                {"X-User-Role": "staff", "X-User-Name": "吧台小李"},
+            )
+            logs = json.loads(app.handle_get("/api/operation-logs")[2])["items"]
+
+        self.assertEqual(logs[0]["user_name"], "吧台小李")
+        self.assertEqual(logs[0]["user_role"], "staff")
+
+    def test_dangerous_delete_creates_backup_first(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, _, body = app.handle_delete(
+                "/api/products/1",
+                {"X-User-Role": "admin", "X-User-Name": "店长"},
+            )
+            backup_files = list((Path(tmpdir) / "backups").glob("bar_agent_backup_*.db"))
+
+        self.assertEqual(status, 200)
+        self.assertTrue(json.loads(body)["deleted"])
+        self.assertTrue(backup_files)
+
 
 if __name__ == "__main__":
     unittest.main()

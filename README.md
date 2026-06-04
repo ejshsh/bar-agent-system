@@ -94,6 +94,7 @@ GET /api/agent-reports/{id}
 GET /api/backup/info
 GET /api/operation-logs
 GET /api/budget?year={year}&month={month}
+POST /api/auth/login
 POST /api/products
 POST /api/suppliers
 POST /api/supplier-price-quotes
@@ -171,6 +172,18 @@ Invoke-WebRequest `
 - `POST /api/agent-reports/save` 保存报告到 `agent_reports` 历史记录。
 - `GET /api/todays-report` 返回当天最近保存的一份报告。
 - `POST /api/agent-ask` 支持自然语言经营问答；配置 DeepSeek 密钥时调用模型，未配置或调用失败时回退规则引擎。
+- 浏览器打印 / 导出 PDF 时会应用报告打印样式，隐藏导航和操作按钮。
+
+登录、权限和审计：
+
+- 默认管理员账号：`admin` / `admin123`。
+- 默认店员账号：`staff` / `staff123`。
+- 前端所有 API 请求会附带 `X-User-Role` 和 `X-User-Name`。
+- 后端会阻止店员执行采购、删除、预算、备份、导入、报告保存等管理动作。
+- 店员可执行快速出库、客户取酒和客户联系，并可查看库存/存酒/Agent。
+- `operation_logs` 会记录操作人和角色，便于追溯。
+- 删除商品、供应商、客户存酒、报告、采购单等危险操作前会自动创建数据库备份。
+- 顶部“吧台工作台”提供店员常用入口：快速出库、客户存酒和 Agent 问答。
 
 DeepSeek 配置：
 

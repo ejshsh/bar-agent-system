@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS operation_logs (
     target_type TEXT NOT NULL,
     target_id INTEGER,
     details TEXT NOT NULL,
+    user_name TEXT NOT NULL DEFAULT 'system',
+    user_role TEXT NOT NULL DEFAULT 'admin',
     created_at TEXT NOT NULL
 );
 
@@ -232,6 +234,8 @@ def initialize_database(db_path: str | Path) -> None:
             _ensure_column(connection, "customer_storage", "is_active", "INTEGER NOT NULL DEFAULT 1")
             _ensure_column(connection, "customer_storage", "phone", "TEXT NOT NULL DEFAULT ''")
             _ensure_column(connection, "sales_records", "unit_price", "REAL NOT NULL DEFAULT 0")
+            _ensure_column(connection, "operation_logs", "user_name", "TEXT NOT NULL DEFAULT 'system'")
+            _ensure_column(connection, "operation_logs", "user_role", "TEXT NOT NULL DEFAULT 'admin'")
             _ensure_budgets_index(connection)
             if _table_is_empty(connection, "products"):
                 _seed_database(connection)
@@ -970,12 +974,24 @@ def _average_purchase_price(connection: sqlite3.Connection, product_id: int) -> 
     return float(row["average_price"])
 
 
-def insert_operation_log(db_path: str | Path, action: str, target_type: str, target_id: int | None, details: str) -> None:
+def insert_operation_log(
+    db_path: str | Path,
+    action: str,
+    target_type: str,
+    target_id: int | None,
+    details: str,
+    user_name: str = "system",
+    user_role: str = "admin",
+) -> None:
     with closing(connect(db_path)) as connection:
         with connection:
             connection.execute(
-                "INSERT INTO operation_logs (action, target_type, target_id, details, created_at) VALUES (?, ?, ?, ?, ?)",
-                (action, target_type, target_id, details, datetime.now().isoformat()),
+                """
+                INSERT INTO operation_logs
+                    (action, target_type, target_id, details, user_name, user_role, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (action, target_type, target_id, details, user_name, user_role, datetime.now().isoformat()),
             )
 
 

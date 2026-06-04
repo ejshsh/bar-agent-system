@@ -2121,11 +2121,100 @@ h2 {
   border-bottom: 0;
 }
 
+.staff-workspace-modal {
+  max-width: 560px;
+}
+
+.staff-workspace-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.staff-workspace-action {
+  background: var(--parchment);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+  min-height: 120px;
+  padding: 16px;
+  text-align: left;
+}
+
+.staff-workspace-action strong {
+  font-size: 18px;
+}
+
+.staff-workspace-action span {
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .modal-actions {
   display: flex;
   gap: 12px;
   grid-column: 1 / -1;
   justify-content: flex-end;
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+    padding: 0;
+  }
+
+  .site-header,
+  .footer,
+  .modal-actions,
+  .icon-button,
+  .button,
+  .nav-links,
+  .sub-actions,
+  .toast-container,
+  .expiring-notification {
+    display: none !important;
+  }
+
+  main,
+  .section,
+  .hero,
+  .tile-light,
+  .tile-white,
+  .tile-dark,
+  .tile-parchment {
+    background: #fff !important;
+    color: #111 !important;
+    box-shadow: none !important;
+  }
+
+  .modal-backdrop:not([hidden]) {
+    background: #fff !important;
+    display: block !important;
+    inset: auto;
+    padding: 0;
+    position: static;
+  }
+
+  .purchase-modal,
+  .report-modal {
+    border-radius: 0;
+    box-shadow: none;
+    max-height: none;
+    max-width: none;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .report-content,
+  .report-metrics-bar,
+  .report-compare-card {
+    break-inside: avoid;
+  }
 }
 
 /* ───────── Setup wizard ───────── */

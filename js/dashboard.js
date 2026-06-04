@@ -432,23 +432,19 @@ async function generateTodayReportFromDashboard() {
   const el = document.querySelector("[data-daily-report]");
   if (el) el.innerHTML = '<p class="form-message">生成中...</p>';
   try {
-    const resp = await fetch(`${API_BASE_URL}/api/agent-reports`, {
+    const report = await apiFetch("/api/agent-reports", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ created_at: new Date().toISOString() }),
+      body: { created_at: new Date().toISOString() },
     });
-    const report = await resp.json();
-    if (!resp.ok) throw new Error(report.message || "生成失败");
-    await fetch(`${API_BASE_URL}/api/agent-reports/save`, {
+    await apiFetch("/api/agent-reports/save", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      body: {
         title: report.title,
         period: report.period,
         content: report.content,
         metrics: report.metrics,
         created_at: new Date().toISOString(),
-      }),
+      },
     });
     renderDailyReport(report);
   } catch (err) {

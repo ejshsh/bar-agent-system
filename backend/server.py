@@ -53,6 +53,16 @@ from .rules import agent_ask, build_chart_data, build_dashboard, compute_revenue
 
 DEFAULT_DB_PATH = Path("data/bar_agent.db")
 
+LOCAL_USERS = {
+    "admin": {"password": "admin123", "role": "admin", "display_name": "管理员"},
+    "staff": {"password": "staff123", "role": "staff", "display_name": "店员"},
+}
+
+STAFF_POST_ROUTES = {
+    "/api/sales-records",
+    "/api/customer-contact",
+}
+
 
 class BarApi:
     def __init__(self, db_path: str | Path = DEFAULT_DB_PATH) -> None:
@@ -198,37 +208,58 @@ class BarApi:
 
         return self._json(404, {"error": "not_found", "path": route})
 
-    def handle_delete(self, path: str) -> tuple[int, dict[str, str], str]:
+    def handle_delete(self, path: str, headers: dict[str, str] | None = None) -> tuple[int, dict[str, str], str]:
         route = urlparse(path).path
         initialize_database(self.db_path)
         segments = [segment for segment in route.split("/") if segment]
+        user = self._current_user(headers)
+        if not self._is_admin(user):
+            return self._forbidden()
 
         if len(segments) == 3 and segments[:2] == ["api", "products"]:
+            backup_database(self.db_path)
             deleted = deactivate_product(self.db_path, int(segments[2]))
+            if deleted:
+                self._log(user, "delete", "products", int(segments[2]), f"删除商品 {segments[2]}")
             return self._json(200 if deleted else 404, {"deleted": deleted})
 
         if len(segments) == 3 and segments[:2] == ["api", "suppliers"]:
+            backup_database(self.db_path)
             deleted = deactivate_supplier(self.db_path, int(segments[2]))
+            if deleted:
+                self._log(user, "delete", "suppliers", int(segments[2]), f"删除供应商 {segments[2]}")
             return self._json(200 if deleted else 404, {"deleted": deleted})
 
         if len(segments) == 3 and segments[:2] == ["api", "customer-storage"]:
+            backup_database(self.db_path)
             deleted = deactivate_customer_storage(self.db_path, int(segments[2]))
+            if deleted:
+                self._log(user, "delete", "customer_storage", int(segments[2]), f"删除客户存酒 {segments[2]}")
             return self._json(200 if deleted else 404, {"deleted": deleted})
 
         if len(segments) == 3 and segments[:2] == ["api", "agent-reports"]:
+            backup_database(self.db_path)
             deleted = delete_agent_report(self.db_path, int(segments[2]))
+            if deleted:
+                self._log(user, "delete", "agent_reports", int(segments[2]), f"删除报告 {segments[2]}")
             return self._json(200 if deleted else 404, {"deleted": deleted})
 
         if len(segments) == 3 and segments[:2] == ["api", "purchase-orders"]:
+            backup_database(self.db_path)
             deleted = delete_purchase_order(self.db_path, int(segments[2]))
+            if deleted:
+                self._log(user, "delete", "purchase_orders", int(segments[2]), f"删除采购单 {segments[2]}")
             return self._json(200 if deleted else 404, {"deleted": deleted})
 
         return self._json(404, {"error": "not_found", "path": route})
 
-    def handle_put(self, path: str, body: str) -> tuple[int, dict[str, str], str]:
+    def handle_put(self, path: str, body: str, headers: dict[str, str] | None = None) -> tuple[int, dict[str, str], str]:
         route = urlparse(path).path
         initialize_database(self.db_path)
         segments = [segment for segment in route.split("/") if segment]
+        user = self._current_user(headers)
+        if not self._is_admin(user):
+            return self._forbidden()
 
         try:
             payload = json.loads(body or "{}")
@@ -252,40 +283,46 @@ class BarApi:
             if amount < 0:
                 return self._json(400, {"error": "amount must be non-negative"})
             result = set_monthly_budget(self.db_path, b_year, b_month, amount)
-            insert_operation_log(self.db_path, "set_budget", "budgets", None,
-                f"设置预算 {b_year}-{b_month:02d} = ¥{amount}")
+            self._log(user, "set_budget", "budgets", None, f"设置预算 {b_year}-{b_month:02d} = ¥{amount}")
             return self._json(200, {"budget": result})
 
         return self._json(404, {"error": "not_found", "path": route})
 
-    def handle_post(self, path: str, body: str) -> tuple[int, dict[str, str], str]:
+    def handle_post(self, path: str, body: str, headers: dict[str, str] | None = None) -> tuple[int, dict[str, str], str]:
         route = urlparse(path).path
         initialize_database(self.db_path)
         segments = [segment for segment in route.split("/") if segment]
+        user = self._current_user(headers)
 
         try:
             payload = json.loads(body or "{}")
         except json.JSONDecodeError:
             return self._json(400, {"error": "invalid_json"})
 
+        if route == "/api/auth/login":
+            return self._login(payload)
+
+        if not self._can_post(user, route, segments):
+            return self._forbidden()
+
         if route == "/api/purchase-orders":
             try:
                 result = create_purchase_order(self.db_path, payload)
-                insert_operation_log(self.db_path, "create", "purchase_orders", result["purchase_order"]["id"], f"采购入库 商品{payload.get('product_id')} x{payload.get('quantity')}")
+                self._log(user, "create", "purchase_orders", result["purchase_order"]["id"], f"采购入库 商品{payload.get('product_id')} x{payload.get('quantity')}")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_purchase_order", "message": str(error)})
             return self._json(201, result)
         if route == "/api/products":
             try:
                 product = create_product(self.db_path, payload)
-                insert_operation_log(self.db_path, "create", "products", product["id"], f"新建商品 {payload.get('name')}")
+                self._log(user, "create", "products", product["id"], f"新建商品 {payload.get('name')}")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_product", "message": str(error)})
             return self._json(201, {"product": product})
         if route == "/api/suppliers":
             try:
                 supplier = create_supplier(self.db_path, payload)
-                insert_operation_log(self.db_path, "create", "suppliers", supplier["id"], f"新建供应商 {payload.get('name')}")
+                self._log(user, "create", "suppliers", supplier["id"], f"新建供应商 {payload.get('name')}")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_supplier", "message": str(error)})
             return self._json(201, {"supplier": supplier})
@@ -310,7 +347,7 @@ class BarApi:
         if route == "/api/customer-storage":
             try:
                 customer_storage = create_customer_storage(self.db_path, payload)
-                insert_operation_log(self.db_path, "create", "customer_storage", customer_storage["id"], f"新增客户存酒 {payload.get('customer_name')} - {payload.get('product_name')}")
+                self._log(user, "create", "customer_storage", customer_storage["id"], f"新增客户存酒 {payload.get('customer_name')} - {payload.get('product_name')}")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_customer_storage", "message": str(error)})
             return self._json(201, {"customer_storage": customer_storage})
@@ -323,14 +360,14 @@ class BarApi:
         if route == "/api/sales-records":
             try:
                 result = create_sales_record(self.db_path, payload)
-                insert_operation_log(self.db_path, "create", "sales_records", result["sales_record"]["id"], f"销售出库 商品{payload.get('product_id')} x{payload.get('quantity')}")
+                self._log(user, "create", "sales_records", result["sales_record"]["id"], f"销售出库 商品{payload.get('product_id')} x{payload.get('quantity')}")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_sales_record", "message": str(error)})
             return self._json(201, result)
         if route == "/api/inventory-adjustments":
             try:
                 result = create_inventory_adjustment(self.db_path, payload)
-                insert_operation_log(self.db_path, "adjust", "inventory_records", result["inventory_record"]["id"], f"库存调整 商品{payload.get('product_id')} ({payload.get('adjustment_type')})")
+                self._log(user, "adjust", "inventory_records", result["inventory_record"]["id"], f"库存调整 商品{payload.get('product_id')} ({payload.get('adjustment_type')})")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_inventory_adjustment", "message": str(error)})
             return self._json(201, result)
@@ -377,7 +414,7 @@ class BarApi:
                 if not items:
                     raise ValueError("items is required")
                 result = batch_create_purchase_orders(self.db_path, items)
-                insert_operation_log(self.db_path, "batch_purchase", "purchase_orders", None, f"批量生成 {result['created']} 笔采购单")
+                self._log(user, "batch_purchase", "purchase_orders", None, f"批量生成 {result['created']} 笔采购单")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_batch_purchase", "message": str(error)})
             return self._json(201, result)
@@ -388,7 +425,7 @@ class BarApi:
                 action = str(payload.get("action", "notify"))
                 if storage_id <= 0:
                     raise ValueError("storage_id is required")
-                insert_operation_log(self.db_path, action, "customer_storage", storage_id, f"客户存酒{storage_id} {'发送通知' if action == 'notify' else '客户召回'}")
+                self._log(user, action, "customer_storage", storage_id, f"客户存酒{storage_id} {'发送通知' if action == 'notify' else '客户召回'}")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_customer_contact", "message": str(error)})
             return self._json(200, {"contacted": True, "storage_id": storage_id, "action": action})
@@ -396,7 +433,7 @@ class BarApi:
         if route == "/api/purchase-approvals":
             try:
                 approval = create_purchase_approval(self.db_path, payload)
-                insert_operation_log(self.db_path, "submit_approval", "purchase_approvals", approval["id"], f"待审批采购 商品{payload.get('product_id')} ¥{approval['total_amount']}")
+                self._log(user, "submit_approval", "purchase_approvals", approval["id"], f"待审批采购 商品{payload.get('product_id')} ¥{approval['total_amount']}")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_approval", "message": str(error)})
             return self._json(201, approval)
@@ -404,7 +441,7 @@ class BarApi:
         if route == "/api/inventory-audits":
             try:
                 audit = create_inventory_audit(self.db_path, payload)
-                insert_operation_log(self.db_path, "audit", "inventory_audits", audit["id"], f"盘点 商品{payload.get('product_id')} 差异{audit['discrepancy']}")
+                self._log(user, "audit", "inventory_audits", audit["id"], f"盘点 商品{payload.get('product_id')} 差异{audit['discrepancy']}")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_audit", "message": str(error)})
             return self._json(201, audit)
@@ -419,13 +456,13 @@ class BarApi:
                 result = approve_purchase(self.db_path, approval_id)
                 if result is None:
                     return self._json(404, {"error": "approval_not_found_or_already_processed"})
-                insert_operation_log(self.db_path, "approve", "purchase_approvals", approval_id, f"审批通过 ¥{result['approval']['total_amount']}")
+                self._log(user, "approve", "purchase_approvals", approval_id, f"审批通过 ¥{result['approval']['total_amount']}")
                 return self._json(200, result)
             if action == "reject":
                 ok = reject_purchase(self.db_path, approval_id)
                 if not ok:
                     return self._json(404, {"error": "approval_not_found_or_already_processed"})
-                insert_operation_log(self.db_path, "reject", "purchase_approvals", approval_id, "审批驳回")
+                self._log(user, "reject", "purchase_approvals", approval_id, "审批驳回")
                 return self._json(200, {"rejected": True})
             return self._json(400, {"error": "unknown_approval_action"})
 
@@ -436,7 +473,7 @@ class BarApi:
                 if not import_type or not rows:
                     raise ValueError("type and rows are required")
                 result = import_csv_data(self.db_path, import_type, rows)
-                insert_operation_log(self.db_path, "import", import_type, None, f"批量导入 {import_type} 共 {result['imported']} 条")
+                self._log(user, "import", import_type, None, f"批量导入 {import_type} 共 {result['imported']} 条")
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_import", "message": str(error)})
             return self._json(200, result)
@@ -446,6 +483,44 @@ class BarApi:
     def _json(self, status: int, payload: dict[str, Any]) -> tuple[int, dict[str, str], str]:
         body = json.dumps(payload, ensure_ascii=False, indent=2)
         return status, {"Content-Type": "application/json; charset=utf-8"}, body
+
+    def _login(self, payload: dict[str, Any]) -> tuple[int, dict[str, str], str]:
+        username = str(payload.get("username", "")).strip()
+        password = str(payload.get("password", ""))
+        record = LOCAL_USERS.get(username)
+        if record is None or record["password"] != password:
+            return self._json(401, {"error": "invalid_credentials"})
+        user = {
+            "username": username,
+            "display_name": record["display_name"],
+            "role": record["role"],
+        }
+        return self._json(200, {"token": f"local:{record['role']}:{username}", "user": user})
+
+    def _current_user(self, headers: dict[str, str] | None) -> dict[str, str]:
+        headers = headers or {}
+        normalized = {str(key).lower(): str(value) for key, value in headers.items()}
+        role = normalized.get("x-user-role", "admin").strip().lower() or "admin"
+        if role not in {"admin", "staff"}:
+            role = "staff"
+        name = normalized.get("x-user-name", "system").strip() or "system"
+        return {"name": name, "role": role}
+
+    def _is_admin(self, user: dict[str, str]) -> bool:
+        return user["role"] == "admin"
+
+    def _can_post(self, user: dict[str, str], route: str, segments: list[str]) -> bool:
+        if self._is_admin(user):
+            return True
+        if route in STAFF_POST_ROUTES:
+            return True
+        return len(segments) == 4 and segments[:2] == ["api", "customer-storage"] and segments[3] == "pickup"
+
+    def _forbidden(self) -> tuple[int, dict[str, str], str]:
+        return self._json(403, {"error": "forbidden", "message": "当前角色无权执行此操作"})
+
+    def _log(self, user: dict[str, str], action: str, target_type: str, target_id: int | None, details: str) -> None:
+        insert_operation_log(self.db_path, action, target_type, target_id, details, user["name"], user["role"])
 
     def _serve_docs(self) -> tuple[int, dict[str, str], str]:
         docs_html = """<!doctype html>
@@ -636,7 +711,7 @@ def make_handler(app: BarApi) -> type[BaseHTTPRequestHandler]:
         def do_POST(self) -> None:
             length = int(self.headers.get("Content-Length", "0"))
             body = self.rfile.read(length).decode("utf-8")
-            status, headers, response_body = app.handle_post(self.path, body)
+            status, headers, response_body = app.handle_post(self.path, body, dict(self.headers))
             encoded = response_body.encode("utf-8")
             self.send_response(status)
             for key, value in headers.items():
@@ -650,11 +725,11 @@ def make_handler(app: BarApi) -> type[BaseHTTPRequestHandler]:
             self.send_response(204)
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-User-Role, X-User-Name")
             self.end_headers()
 
         def do_DELETE(self) -> None:
-            status, headers, response_body = app.handle_delete(self.path)
+            status, headers, response_body = app.handle_delete(self.path, dict(self.headers))
             encoded = response_body.encode("utf-8")
             self.send_response(status)
             for key, value in headers.items():
@@ -667,7 +742,7 @@ def make_handler(app: BarApi) -> type[BaseHTTPRequestHandler]:
         def do_PUT(self) -> None:
             length = int(self.headers.get("Content-Length", "0"))
             body = self.rfile.read(length).decode("utf-8")
-            status, headers, response_body = app.handle_put(self.path, body)
+            status, headers, response_body = app.handle_put(self.path, body, dict(self.headers))
             encoded = response_body.encode("utf-8")
             self.send_response(status)
             for key, value in headers.items():

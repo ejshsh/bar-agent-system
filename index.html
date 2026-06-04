@@ -42,6 +42,7 @@
           <span class="api-status" data-api-status>演示数据</span>
           <button class="button primary" type="button" data-open-purchase>采购入库 <span class="badge" data-replenishment-badge hidden></span></button>
           <button class="button secondary" type="button" data-open-pos>快速出库</button>
+          <button class="button secondary" type="button" data-open-staff-workspace>吧台工作台</button>
           <button class="button secondary" type="button" data-open-report>经营报告</button>
           <div class="dropdown" data-dropdown>
             <button class="button secondary" type="button" data-dropdown-toggle>更多 ▾</button>
@@ -1224,6 +1225,33 @@
             <button class="button primary" type="button" data-save-budget>保存预算</button>
           </div>
         </div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" data-staff-workspace-modal hidden>
+      <section class="purchase-modal staff-workspace-modal" role="dialog" aria-modal="true" aria-labelledby="staff-workspace-title">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow blue">Staff Workspace</p>
+            <h2 id="staff-workspace-title">吧台工作台</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-staff-workspace aria-label="关闭吧台工作台">×</button>
+        </div>
+        <div class="staff-workspace-grid">
+          <button class="staff-workspace-action" type="button" data-staff-open-pos>
+            <strong>快速出库</strong>
+            <span>销售、试饮和日常消耗</span>
+          </button>
+          <button class="staff-workspace-action" type="button" data-staff-open-storage>
+            <strong>客户存酒</strong>
+            <span>查询、取酒核销和到期提醒</span>
+          </button>
+          <button class="staff-workspace-action" type="button" data-staff-open-agent>
+            <strong>问 Agent</strong>
+            <span>缺货、存酒、促销建议</span>
+          </button>
+        </div>
+        <p class="form-message">店员模式只能执行快速出库、客户取酒、客户联系和查看数据；采购、删除、预算、备份、导入和报告保存需要管理员。</p>
       </section>
     </div>
 
