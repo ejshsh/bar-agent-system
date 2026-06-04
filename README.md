@@ -68,6 +68,12 @@ http://127.0.0.1:8765/index.html
 python -m backend.server
 ```
 
+如果 PowerShell 提示 `python` 不是内部或外部命令，可以使用 Codex 自带 Python：
+
+```powershell
+& 'C:\Users\ROG\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m backend.server
+```
+
 如果后端已经在运行，修改代码后需要先停止旧 PowerShell 进程，再重新执行启动命令，否则浏览器仍会连到旧接口。
 
 默认地址：
