@@ -33,6 +33,13 @@ const storageForm = document.querySelector("[data-storage-form]");
 const storageTitle = document.querySelector("[data-storage-title]");
 const storageMessage = document.querySelector("[data-storage-message]");
 const storageIdInput = document.querySelector("[data-storage-id]");
+const saleModal = document.querySelector("[data-sale-modal]");
+const openSaleButton = document.querySelector("[data-open-sale]");
+const closeSaleButtons = document.querySelectorAll("[data-close-sale]");
+const saleForm = document.querySelector("[data-sale-form]");
+const saleProductSelect = document.querySelector("[data-sale-product-select]");
+const saleDateInput = document.querySelector("[data-sale-date]");
+const saleMessage = document.querySelector("[data-sale-message]");
 
 let currentStorageRecords = [];
 
@@ -127,9 +134,11 @@ function renderDashboard(dashboard) {
 
 function renderPurchaseOptions(products, suppliers) {
   if (products.length > 0) {
-    productSelect.innerHTML = products.map((item) => (
+    const options = products.map((item) => (
       `<option value="${item.id}">${escapeHtml(item.name)}</option>`
     )).join("");
+    productSelect.innerHTML = options;
+    saleProductSelect.innerHTML = options;
   }
 
   if (suppliers.length > 0) {
@@ -320,6 +329,15 @@ function bindPurchaseForm() {
     }
   });
   storageForm.addEventListener("submit", submitCustomerStorage);
+  saleDateInput.value = new Date().toISOString().slice(0, 10);
+  openSaleButton.addEventListener("click", openSaleModal);
+  closeSaleButtons.forEach((button) => button.addEventListener("click", closeSaleModal));
+  saleModal.addEventListener("click", (event) => {
+    if (event.target === saleModal) {
+      closeSaleModal();
+    }
+  });
+  saleForm.addEventListener("submit", submitSalesRecord);
 }
 
 function closePurchaseModal() {
@@ -544,6 +562,50 @@ async function deleteCustomerStorage(storageId) {
     await loadDashboard();
   } catch (error) {
     alert(`删除失败：${error.message}`);
+  }
+}
+
+function openSaleModal() {
+  saleModal.hidden = false;
+  saleMessage.textContent = "提交后会写入销售消耗、生成库存流水，并刷新首页指标。";
+  saleMessage.className = "form-message";
+}
+
+function closeSaleModal() {
+  saleModal.hidden = true;
+}
+
+async function submitSalesRecord(event) {
+  event.preventDefault();
+  const formData = new FormData(saleForm);
+  const payload = {
+    product_id: Number(formData.get("product_id")),
+    quantity: Number(formData.get("quantity")),
+    sale_date: String(formData.get("sale_date"))
+  };
+
+  saleMessage.textContent = "正在提交出库...";
+  saleMessage.className = "form-message";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/sales-records`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json();
+      throw new Error(errorPayload.message || `API returned ${response.status}`);
+    }
+
+    const result = await response.json();
+    saleMessage.textContent = `出库成功：库存减少 ${formatNumber(Math.abs(result.inventory_record.quantity_change))}，当前库存 ${formatNumber(result.inventory_record.quantity_after)}。`;
+    saleMessage.className = "form-message success";
+    await loadDashboard();
+  } catch (error) {
+    saleMessage.textContent = `出库失败：${error.message}`;
+    saleMessage.className = "form-message error";
   }
 }
 

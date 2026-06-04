@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from .db import (
     create_product,
     create_purchase_order,
+    create_sales_record,
     create_supplier,
     create_customer_storage,
     deactivate_customer_storage,
@@ -122,6 +123,12 @@ class BarApi:
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_customer_storage", "message": str(error)})
             return self._json(201, {"customer_storage": customer_storage})
+        if route == "/api/sales-records":
+            try:
+                result = create_sales_record(self.db_path, payload)
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_sales_record", "message": str(error)})
+            return self._json(201, result)
 
         return self._json(404, {"error": "not_found", "path": route})
 

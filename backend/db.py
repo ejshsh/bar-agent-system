@@ -246,6 +246,60 @@ def create_purchase_order(db_path: str | Path, payload: dict[str, Any]) -> dict[
     }
 
 
+def create_sales_record(db_path: str | Path, payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    product_id = int(payload["product_id"])
+    quantity = float(payload["quantity"])
+    sale_date = str(payload["sale_date"])
+
+    if quantity <= 0:
+        raise ValueError("quantity must be greater than 0")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            product = connection.execute(
+                "SELECT * FROM products WHERE id = ? AND is_active = 1",
+                (product_id,),
+            ).fetchone()
+            if product is None:
+                raise ValueError("product_id does not exist")
+
+            current_stock = float(product["current_stock"])
+            if quantity > current_stock:
+                raise ValueError("insufficient stock")
+
+            cursor = connection.execute(
+                "INSERT INTO sales_records (product_id, quantity, sale_date) VALUES (?, ?, ?)",
+                (product_id, quantity, sale_date),
+            )
+            sales_id = int(cursor.lastrowid)
+            quantity_after = current_stock - quantity
+            connection.execute(
+                "UPDATE products SET current_stock = ? WHERE id = ?",
+                (quantity_after, product_id),
+            )
+            record_cursor = connection.execute(
+                """
+                INSERT INTO inventory_records
+                    (product_id, record_type, quantity_change, quantity_after, related_order_id, reason, occurred_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (product_id, "outbound", -quantity, quantity_after, sales_id, "sales_outbound", sale_date),
+            )
+            sales_record = connection.execute(
+                "SELECT * FROM sales_records WHERE id = ?",
+                (sales_id,),
+            ).fetchone()
+            inventory_record = connection.execute(
+                "SELECT * FROM inventory_records WHERE id = ?",
+                (int(record_cursor.lastrowid),),
+            ).fetchone()
+
+    return {
+        "sales_record": dict(sales_record),
+        "inventory_record": dict(inventory_record),
+    }
+
+
 def create_customer_storage(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
     values = _customer_storage_values(payload)
     with closing(connect(db_path)) as connection:

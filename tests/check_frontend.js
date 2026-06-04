@@ -21,6 +21,8 @@ assert(script.includes("method: \"DELETE\""));
 assert(script.includes("submitCustomerStorage"));
 assert(script.includes("deleteCustomerStorage"));
 assert(script.includes("method = storageId ? \"PUT\" : \"POST\""));
+assert(script.includes("submitSalesRecord"));
+assert(script.includes("fetch(`${API_BASE_URL}/api/sales-records`"));
 assert(script.includes("escapeHtml"));
 assert(html.includes("data-api-status"));
 assert(html.includes("data-live-summary"));
@@ -34,6 +36,9 @@ assert(html.includes("data-delete-supplier"));
 assert(html.includes("data-storage-modal"));
 assert(html.includes("data-storage-form"));
 assert(html.includes("data-open-storage"));
+assert(html.includes("data-sale-modal"));
+assert(html.includes("data-sale-form"));
+assert(html.includes("data-open-sale"));
 assert(html.includes("data-metric=\"low_stock_count\""));
 
 console.log("frontend checks passed");

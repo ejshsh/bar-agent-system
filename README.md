@@ -83,6 +83,7 @@ GET /api/customer-storage
 POST /api/products
 POST /api/suppliers
 POST /api/purchase-orders
+POST /api/sales-records
 POST /api/customer-storage
 PUT /api/customer-storage/{id}
 DELETE /api/customer-storage/{id}
@@ -114,6 +115,13 @@ Invoke-WebRequest `
 - 新增客户存酒。
 - 编辑客户姓名、存酒名称、剩余酒量和到期天数。
 - 删除客户存酒记录。删除采用软删除，历史数据不直接物理移除。
+
+销售出库支持：
+
+- 选择已有酒水商品。
+- 输入销售或消耗数量。
+- 提交后写入 `sales_records`，生成出库库存流水，并扣减当前库存。
+- 库存不足时后端会拒绝出库。
 
 首次启动会自动创建 SQLite 数据库：
 

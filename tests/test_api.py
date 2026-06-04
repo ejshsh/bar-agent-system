@@ -206,6 +206,55 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(json.loads(delete_body)["deleted"])
         self.assertFalse(any(item["customer_name"] == "王先生VIP" for item in dashboard["customer_storage"]))
 
+    def test_create_sales_record_decreases_stock_and_records_inventory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, _, body = app.handle_post(
+                "/api/sales-records",
+                json.dumps(
+                    {
+                        "product_id": 2,
+                        "quantity": 6,
+                        "sale_date": "2026-06-04",
+                    }
+                ),
+            )
+            payload = json.loads(body)
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(status, 201)
+        self.assertEqual(payload["sales_record"]["quantity"], 6)
+        self.assertEqual(payload["inventory_record"]["quantity_change"], -6)
+        product = next(item for item in dashboard["products"] if item["id"] == 2)
+        self.assertEqual(product["current_stock"], 90)
+
+    def test_create_sales_record_rejects_insufficient_stock(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, _, body = app.handle_post(
+                "/api/sales-records",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "quantity": 999,
+                        "sale_date": "2026-06-04",
+                    }
+                ),
+            )
+            payload = json.loads(body)
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "invalid_sales_record")
+        product = next(item for item in dashboard["products"] if item["id"] == 1)
+        self.assertEqual(product["current_stock"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

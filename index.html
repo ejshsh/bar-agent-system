@@ -29,6 +29,7 @@
         <div class="sub-actions">
           <span class="api-status" data-api-status>演示数据</span>
           <button class="button secondary" type="button" data-open-purchase>新增采购单</button>
+          <button class="button secondary" type="button" data-open-sale>销售出库</button>
           <button class="button primary" type="button">生成补货建议</button>
         </div>
       </div>
@@ -366,6 +367,42 @@
           <div class="modal-actions">
             <button class="button secondary" type="button" data-close-storage>取消</button>
             <button class="button primary" type="submit">保存客户存酒</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" data-sale-modal hidden>
+      <section class="purchase-modal" role="dialog" aria-modal="true" aria-labelledby="sale-modal-title">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow blue">Sales Outbound</p>
+            <h2 id="sale-modal-title">销售出库</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-sale aria-label="关闭销售出库表单">×</button>
+        </div>
+        <form class="purchase-form" data-sale-form>
+          <label>
+            出库酒水
+            <select name="product_id" required data-sale-product-select>
+              <option value="1">百龄坛 12 年</option>
+              <option value="2">荔枝味预调酒</option>
+              <option value="3">精酿小麦啤</option>
+              <option value="4">金汤力基酒</option>
+            </select>
+          </label>
+          <label>
+            出库数量
+            <input name="quantity" type="number" min="0.1" step="0.1" value="1" required>
+          </label>
+          <label>
+            出库日期
+            <input name="sale_date" type="date" required data-sale-date>
+          </label>
+          <p class="form-message" data-sale-message>提交后会写入销售消耗、生成库存流水，并刷新首页指标。</p>
+          <div class="modal-actions">
+            <button class="button secondary" type="button" data-close-sale>取消</button>
+            <button class="button primary" type="submit">提交出库</button>
           </div>
         </form>
       </section>
