@@ -247,19 +247,19 @@ node --check js\agent.js
 node tests\check_frontend.js
 ```
 
-## 浏览器 QA 说明
+## 打包给老板
 
-已尝试用 Codex 内置浏览器打开本地页面：
+生成运行包：
 
-- `file://` 地址被浏览器安全策略阻止。
-- `http://127.0.0.1:8765/index.html` 和 `http://localhost:8765/index.html` 被客户端策略拦截。
+```powershell
+python tools\package_portable.py
+```
 
-因此当前完成的是文件级验证和静态布局约束检查。下一步建议在用户本机浏览器中打开 `index.html` 做人工视觉确认，重点查看首屏比例、中文换行、深色区对比度和移动端布局。
+输出：
 
-## 建议下一步
+```text
+dist\BarAgent-Portable\
+dist\BarAgent-Portable.zip
+```
 
-1. 做浏览器视觉走查，确认 Apple 风格是否符合预期。
-2. 将静态原型迁移为 React 或 Vue 组件化前端。
-3. 建立 SQLite 数据库和基础 API。
-4. 用规则引擎实现缺货、积压、临期存酒、采购异常和供应商稳定性分析。
-5. 将 AI Agent 问答从静态文案升级为基于真实数据的分析结果。
+把 zip 发给老板，老板解压后双击 `启动系统.bat` 即可打开。运行包不会包含 `.env`、`.git`、测试目录、当前数据库或缓存文件。
