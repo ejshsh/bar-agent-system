@@ -6,10 +6,13 @@
 
 - `index.html`：静态前端原型入口。
 - `styles.css`：Apple 风格视觉系统、响应式布局和页面样式。
-- `app.js`：导航选中、AI Agent 问答切换、活动建议切换。
+- `app.js`：全局状态、DOM 引用和启动初始化。
+- `js/`：前端模块化脚本，包含工具函数、首页渲染、业务区块、弹窗流程和 Agent 问答。
 - `backend/db.py`：SQLite 建表、种子数据和数据读取。
-- `backend/rules.py`：缺货、积压、临期存酒、采购异常和 Agent 建议规则。
+- `backend/rules.py`：缺货、积压、临期存酒、采购异常、经营报告和 Agent 建议规则。
+- `backend/ai_agent.py`：DeepSeek API 调用封装；未配置密钥时自动回退规则引擎。
 - `backend/server.py`：基于 Python 标准库的 JSON API 服务。
+- `manifest.json` / `sw.js`：PWA 配置和基础离线缓存。
 - `tests/`：后端规则和 API 单元测试。
 - `docs/superpowers/specs/2026-06-04-bar-ai-agent-technical-design.md`：系统技术方案。
 - `docs/superpowers/specs/2026-06-04-bar-frontend-apple-prototype-design.md`：前端原型设计说明。
@@ -46,9 +49,10 @@ http://127.0.0.1:8765/index.html
 ## 已验证项
 
 - `index.html` 已引用 `styles.css` 和 `app.js`。
+- `index.html` 已按顺序引用 `js/utils.js`、`js/dashboard.js`、`js/sections.js`、`js/modals.js`、`js/agent.js` 和 `app.js`。
 - 页面包含首屏、库存预警、AI Agent、客户存酒、活动建议和供应商表现模块。
 - `app.js` 通过 `node --check app.js` 语法检查。
-- `app.js` 会请求 `/api/dashboard`，成功后渲染真实指标和建议，失败后回退演示数据。
+- 前端会请求 `/api/dashboard`，成功后渲染真实指标和建议，失败后显示离线提示。
 - 前端静态检查通过 `node tests/check_frontend.js`。
 - 后端单元测试通过 `python -m unittest discover -s tests -v`。
 - CSS 未使用视口宽度字体、装饰渐变或负字距。
@@ -81,16 +85,34 @@ GET /api/products
 GET /api/suppliers
 GET /api/customer-storage
 GET /api/supplier-price-quotes?product_id={id}
+GET /api/chart-data
+GET /api/recent-sales-trend
+GET /api/revenue-forecast
+GET /api/todays-report
+GET /api/agent-reports
+GET /api/agent-reports/{id}
+GET /api/backup/info
+GET /api/operation-logs
+GET /api/budget?year={year}&month={month}
 POST /api/products
 POST /api/suppliers
 POST /api/supplier-price-quotes
 POST /api/purchase-orders
+POST /api/purchase-orders/batch
 POST /api/sales-records
 POST /api/inventory-adjustments
 POST /api/customer-storage
 POST /api/customer-storage/{id}/pickup
+POST /api/customer-storage/batch-delete
+POST /api/agent-reports
+POST /api/agent-reports/save
+POST /api/agent-ask
+POST /api/backup
+POST /api/import
 PUT /api/customer-storage/{id}
+PUT /api/budget
 DELETE /api/customer-storage/{id}
+DELETE /api/agent-reports/{id}
 DELETE /api/products/{id}
 DELETE /api/suppliers/{id}
 ```
@@ -143,6 +165,27 @@ Invoke-WebRequest `
 - 系统会根据报价、交付速度和供应商价格稳定性生成推荐供应商。
 - 前端点击“报价对比”即可录入报价并查看当前酒水的推荐采购来源。
 
+经营报告和 AI Agent 支持：
+
+- `POST /api/agent-reports` 生成经营报告预览，不自动保存。
+- `POST /api/agent-reports/save` 保存报告到 `agent_reports` 历史记录。
+- `GET /api/todays-report` 返回当天最近保存的一份报告。
+- `POST /api/agent-ask` 支持自然语言经营问答；配置 DeepSeek 密钥时调用模型，未配置或调用失败时回退规则引擎。
+
+DeepSeek 配置：
+
+- 复制 `.env.example` 为 `.env`。
+- 在 `.env` 中填写 `DEEPSEEK_API_KEY=你的密钥`。
+- `.env` 已被 `.gitignore` 忽略，不要提交真实密钥。
+
+其他增强能力：
+
+- 图表数据：采购趋势、销量排行、品类分布、库存状态和利润分析。
+- 预算：设置月度采购预算并在采购时提示超预算风险。
+- 备份：手动创建 SQLite 数据库备份，备份文件保存在 `data/backups/`。
+- 导入：支持商品、供应商、客户存酒等基础数据导入。
+- PWA：提供 `manifest.json` 和 `sw.js`，可作为本地类应用使用。
+
 首次启动会自动创建 SQLite 数据库：
 
 ```text
@@ -153,6 +196,12 @@ data/bar_agent.db
 
 ```powershell
 python -m unittest discover -s tests -v
+node --check app.js
+node --check js\utils.js
+node --check js\dashboard.js
+node --check js\sections.js
+node --check js\modals.js
+node --check js\agent.js
 node tests\check_frontend.js
 ```
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import closing
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +80,55 @@ CREATE TABLE IF NOT EXISTS supplier_price_quotes (
     delivery_days REAL NOT NULL,
     quoted_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS agent_reports (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    period TEXT NOT NULL,
+    content TEXT NOT NULL,
+    metrics TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS operation_logs (
+    id INTEGER PRIMARY KEY,
+    action TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id INTEGER,
+    details TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS purchase_approvals (
+    id INTEGER PRIMARY KEY,
+    product_id INTEGER NOT NULL,
+    supplier_id INTEGER NOT NULL,
+    quantity REAL NOT NULL,
+    unit_price REAL NOT NULL,
+    total_amount REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    approved_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS inventory_audits (
+    id INTEGER PRIMARY KEY,
+    product_id INTEGER NOT NULL,
+    system_stock REAL NOT NULL,
+    actual_stock REAL NOT NULL,
+    discrepancy REAL NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    audited_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS budgets (
+    id INTEGER PRIMARY KEY,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -87,27 +138,78 @@ SEED_ROWS = {
         (2, "荔枝味预调酒", "预调酒", 12, 96, "瓶"),
         (3, "精酿小麦啤", "啤酒", 30, 18, "瓶"),
         (4, "金汤力基酒", "调酒基酒", 6, 5, "瓶"),
+        (5, "麦卡伦 12 年", "威士忌", 5, 7, "瓶"),
+        (6, "科罗娜", "啤酒", 24, 35, "瓶"),
+        (7, "百威", "啤酒", 36, 52, "瓶"),
+        (8, "绝对伏特加", "调酒基酒", 4, 2, "瓶"),
+        (9, "龙舌兰", "调酒基酒", 5, 8, "瓶"),
+        (10, "红酒套装", "葡萄酒", 6, 4, "套"),
+        (11, "香槟", "葡萄酒", 4, 3, "瓶"),
+        (12, "莫吉托预调", "预调酒", 8, 22, "瓶"),
+        (13, "野格", "利口酒", 6, 10, "瓶"),
+        (14, "君度", "调酒基酒", 4, 5, "瓶"),
+        (15, "白州 12 年", "威士忌", 3, 1, "瓶"),
     ],
     "suppliers": [
         (1, "港岛酒业", 94, 2.1),
         (2, "夜色供应链", 86, 3.4),
         (3, "城市精酿", 79, 4.2),
+        (4, "进口酒水直销", 91, 5.0),
+        (5, "本地酒仓", 88, 1.5),
     ],
     "sales_records": [
-        (1, 1, 35, "2026-06-01"),
-        (2, 2, 8, "2026-06-01"),
-        (3, 3, 44, "2026-06-01"),
-        (4, 4, 16, "2026-06-01"),
+        (1, 1, 35, "2026-06-01", 280),
+        (2, 2, 8, "2026-06-01", 35),
+        (3, 3, 44, "2026-06-01", 22),
+        (4, 4, 16, "2026-06-01", 45),
+        (5, 5, 5, "2026-06-01", 420),
+        (6, 6, 28, "2026-06-01", 28),
+        (7, 7, 35, "2026-06-01", 18),
+        (8, 8, 4, "2026-06-01", 55),
+        (9, 9, 6, "2026-06-01", 48),
+        (10, 10, 2, "2026-06-01", 320),
+        (11, 11, 2, "2026-06-01", 480),
+        (12, 12, 15, "2026-06-01", 32),
+        (13, 13, 8, "2026-06-01", 38),
+        (14, 14, 3, "2026-06-01", 52),
+        (15, 1, 8, "2026-06-02", 285),
+        (16, 3, 32, "2026-06-02", 23),
+        (17, 5, 3, "2026-06-02", 430),
+        (18, 6, 22, "2026-06-02", 28),
+        (19, 7, 30, "2026-06-02", 18),
+        (20, 8, 3, "2026-06-02", 56),
+        (21, 2, 10, "2026-06-03", 36),
+        (22, 4, 12, "2026-06-03", 46),
+        (23, 9, 4, "2026-06-03", 48),
+        (24, 12, 12, "2026-06-03", 33),
+        (25, 13, 6, "2026-06-03", 39),
+        (26, 1, 10, "2026-06-04", 290),
+        (27, 3, 25, "2026-06-04", 24),
+        (28, 5, 2, "2026-06-04", 425),
+        (29, 6, 18, "2026-06-04", 29),
+        (30, 7, 28, "2026-06-04", 19),
     ],
     "purchase_orders": [
         (1, 1, 1, 0, 220, 180, "2026-06-01"),
-        (2, 2, 2, 0, 18, 17, "2026-06-01"),
-        (3, 3, 3, 0, 13, 11, "2026-06-01"),
+        (2, 2, 2, 0, 18, 11, "2026-06-01"),
+        (3, 3, 3, 0, 13, 24, "2026-06-01"),
+        (4, 5, 1, 0, 320, 280, "2026-06-01"),
+        (5, 6, 5, 0, 130, 120, "2026-06-01"),
+        (6, 7, 3, 0, 14, 12, "2026-06-01"),
+        (7, 8, 4, 0, 85, 80, "2026-06-02"),
+        (8, 9, 1, 0, 180, 170, "2026-06-02"),
+        (9, 10, 4, 0, 150, 140, "2026-06-02"),
+        (10, 11, 1, 0, 450, 420, "2026-06-02"),
+        (11, 1, 1, 0, 275, 180, "2026-06-03"),
+        (12, 2, 2, 0, 148, 120, "2026-06-03"),
     ],
     "customer_storage": [
-        (1, "陈先生", "皇家礼炮", 420, 7),
-        (2, "林女士", "香槟套餐", 1, 13),
-        (3, "周先生", "麦卡伦 12 年", 260, 28),
+        (1, "陈先生", "皇家礼炮", 420, 7, "13800138001"),
+        (2, "林女士", "香槟套餐", 1, 13, "13800138002"),
+        (3, "周先生", "麦卡伦 12 年", 260, 28, "13800138003"),
+        (4, "王总", "百龄坛 12 年", 500, 5, "13900139001"),
+        (5, "李小姐", "红酒套装", 2, 20, "13900139002"),
+        (6, "张先生", "绝对伏特加", 350, 10, "13900139003"),
     ],
 }
 
@@ -128,6 +230,9 @@ def initialize_database(db_path: str | Path) -> None:
             _ensure_column(connection, "products", "is_active", "INTEGER NOT NULL DEFAULT 1")
             _ensure_column(connection, "suppliers", "is_active", "INTEGER NOT NULL DEFAULT 1")
             _ensure_column(connection, "customer_storage", "is_active", "INTEGER NOT NULL DEFAULT 1")
+            _ensure_column(connection, "customer_storage", "phone", "TEXT NOT NULL DEFAULT ''")
+            _ensure_column(connection, "sales_records", "unit_price", "REAL NOT NULL DEFAULT 0")
+            _ensure_budgets_index(connection)
             if _table_is_empty(connection, "products"):
                 _seed_database(connection)
 
@@ -143,6 +248,8 @@ def load_dataset(db_path: str | Path) -> dict[str, list[dict[str, Any]]]:
             "customer_storage": _fetch_all(connection, "SELECT * FROM customer_storage WHERE is_active = 1 ORDER BY id"),
             "storage_pickup_records": _fetch_all(connection, "SELECT * FROM storage_pickup_records ORDER BY id"),
             "supplier_price_quotes": _fetch_all(connection, "SELECT * FROM supplier_price_quotes ORDER BY id"),
+            "purchase_approvals": _fetch_all(connection, "SELECT * FROM purchase_approvals ORDER BY id"),
+            "inventory_audits": _fetch_all(connection, "SELECT * FROM inventory_audits ORDER BY id"),
         }
 
 
@@ -294,7 +401,7 @@ def compare_supplier_price_quotes(db_path: str | Path, product_id: int) -> dict[
     return {"items": scored_rows, "recommendation": recommendation}
 
 
-def create_purchase_order(db_path: str | Path, payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def create_purchase_order(db_path: str | Path, payload: dict[str, Any], check_budget: bool = True) -> dict[str, dict[str, Any]]:
     product_id = int(payload["product_id"])
     supplier_id = int(payload["supplier_id"])
     quantity = float(payload["quantity"])
@@ -347,19 +454,43 @@ def create_purchase_order(db_path: str | Path, payload: dict[str, Any]) -> dict[
                 (int(record_cursor.lastrowid),),
             ).fetchone()
 
-    return {
+    result: dict[str, Any] = {
         "purchase_order": dict(purchase_order),
         "inventory_record": dict(inventory_record),
     }
+
+    if check_budget:
+        try:
+            order_year, order_month = int(order_date[:4]), int(order_date[5:7])
+            budget = get_monthly_budget(db_path, order_year, order_month)
+            if budget is not None:
+                spent_before = get_monthly_spent(db_path, order_year, order_month)
+                order_total = round(quantity * unit_price, 2)
+                new_total = spent_before + order_total
+                if new_total > budget["amount"]:
+                    result["budget_warning"] = {
+                        "budget_amount": budget["amount"],
+                        "spent_before": round(spent_before, 2),
+                        "order_total": order_total,
+                        "overspend": round(new_total - budget["amount"], 2),
+                        "percent_used": round((new_total / budget["amount"]) * 100, 1),
+                    }
+        except (ValueError, IndexError):
+            pass
+
+    return result
 
 
 def create_sales_record(db_path: str | Path, payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     product_id = int(payload["product_id"])
     quantity = float(payload["quantity"])
     sale_date = str(payload["sale_date"])
+    unit_price = float(payload.get("unit_price", 0))
 
     if quantity <= 0:
         raise ValueError("quantity must be greater than 0")
+    if unit_price < 0:
+        raise ValueError("unit_price must not be negative")
 
     with closing(connect(db_path)) as connection:
         with connection:
@@ -375,8 +506,8 @@ def create_sales_record(db_path: str | Path, payload: dict[str, Any]) -> dict[st
                 raise ValueError("insufficient stock")
 
             cursor = connection.execute(
-                "INSERT INTO sales_records (product_id, quantity, sale_date) VALUES (?, ?, ?)",
-                (product_id, quantity, sale_date),
+                "INSERT INTO sales_records (product_id, quantity, sale_date, unit_price) VALUES (?, ?, ?, ?)",
+                (product_id, quantity, sale_date, unit_price),
             )
             sales_id = int(cursor.lastrowid)
             quantity_after = current_stock - quantity
@@ -482,8 +613,8 @@ def create_customer_storage(db_path: str | Path, payload: dict[str, Any]) -> dic
         with connection:
             cursor = connection.execute(
                 """
-                INSERT INTO customer_storage (customer_name, product_name, remaining_quantity, days_until_expiry)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO customer_storage (customer_name, product_name, remaining_quantity, days_until_expiry, phone)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 values,
             )
@@ -501,7 +632,7 @@ def update_customer_storage(db_path: str | Path, storage_id: int, payload: dict[
             cursor = connection.execute(
                 """
                 UPDATE customer_storage
-                SET customer_name = ?, product_name = ?, remaining_quantity = ?, days_until_expiry = ?
+                SET customer_name = ?, product_name = ?, remaining_quantity = ?, days_until_expiry = ?, phone = ?
                 WHERE id = ? AND is_active = 1
                 """,
                 (*values, storage_id),
@@ -595,11 +726,12 @@ def deactivate_customer_storage(db_path: str | Path, storage_id: int) -> bool:
     return cursor.rowcount > 0
 
 
-def _customer_storage_values(payload: dict[str, Any]) -> tuple[str, str, float, int]:
+def _customer_storage_values(payload: dict[str, Any]) -> tuple[str, str, float, int, str]:
     customer_name = str(payload["customer_name"]).strip()
     product_name = str(payload["product_name"]).strip()
     remaining_quantity = float(payload["remaining_quantity"])
     days_until_expiry = int(payload["days_until_expiry"])
+    phone = str(payload.get("phone", "")).strip()
 
     if not customer_name:
         raise ValueError("customer_name is required")
@@ -610,7 +742,173 @@ def _customer_storage_values(payload: dict[str, Any]) -> tuple[str, str, float, 
     if days_until_expiry < 0:
         raise ValueError("days_until_expiry must not be negative")
 
-    return customer_name, product_name, remaining_quantity, days_until_expiry
+    return customer_name, product_name, remaining_quantity, days_until_expiry, phone
+
+
+def create_agent_report(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    title = str(payload["title"]).strip()
+    period = str(payload["period"]).strip()
+    content = str(payload["content"]).strip()
+    metrics = json.dumps(payload["metrics"], ensure_ascii=False)
+    created_at = str(payload["created_at"]).strip()
+
+    if not title:
+        raise ValueError("title is required")
+    if not period:
+        raise ValueError("period is required")
+    if not content:
+        raise ValueError("content is required")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO agent_reports (title, period, content, metrics, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (title, period, content, metrics, created_at),
+            )
+            report = connection.execute(
+                "SELECT * FROM agent_reports WHERE id = ?",
+                (int(cursor.lastrowid),),
+            ).fetchone()
+
+    row = dict(report)
+    row["metrics"] = json.loads(row["metrics"])
+    return row
+
+
+def get_agent_reports(db_path: str | Path) -> list[dict[str, Any]]:
+    with closing(connect(db_path)) as connection:
+        rows = connection.execute(
+            "SELECT * FROM agent_reports ORDER BY id DESC"
+        ).fetchall()
+
+    results = []
+    for row in rows:
+        item = dict(row)
+        item["metrics"] = json.loads(item["metrics"])
+        results.append(item)
+    return results
+
+
+def get_agent_report(db_path: str | Path, report_id: int) -> dict[str, Any] | None:
+    with closing(connect(db_path)) as connection:
+        row = connection.execute(
+            "SELECT * FROM agent_reports WHERE id = ?", (report_id,)
+        ).fetchone()
+
+    if row is None:
+        return None
+    item = dict(row)
+    item["metrics"] = json.loads(item["metrics"])
+    return item
+
+
+def delete_agent_report(db_path: str | Path, report_id: int) -> bool:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                "DELETE FROM agent_reports WHERE id = ?", (report_id,)
+            )
+    return cursor.rowcount > 0
+
+
+def backup_database(db_path: str | Path) -> dict[str, Any]:
+    """Create a timestamped copy of the database file."""
+    src = Path(db_path)
+    backup_dir = src.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    dst = backup_dir / f"bar_agent_backup_{timestamp}.db"
+    import shutil
+    shutil.copy2(src, dst)
+    size_kb = round(dst.stat().st_size / 1024, 1)
+    return {
+        "path": str(dst),
+        "filename": dst.name,
+        "size_kb": size_kb,
+        "created_at": timestamp,
+    }
+
+
+def get_backup_info(db_path: str | Path) -> dict[str, Any]:
+    """Get info about existing backups."""
+    backup_dir = Path(db_path).parent / "backups"
+    if not backup_dir.exists():
+        return {"backups": [], "total_count": 0}
+    backups = sorted(backup_dir.glob("bar_agent_backup_*.db"), reverse=True)
+    info = []
+    for b in backups:
+        size_kb = round(b.stat().st_size / 1024, 1)
+        name = b.name
+        ts = name.replace("bar_agent_backup_", "").replace(".db", "")
+        info.append({"filename": name, "size_kb": size_kb, "created_at": ts})
+    return {"backups": info, "total_count": len(info)}
+
+
+def batch_deactivate_customer_storage(db_path: str | Path, ids: list[int]) -> int:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            placeholders = ",".join("?" for _ in ids)
+            cursor = connection.execute(
+                f"UPDATE customer_storage SET is_active = 0 WHERE id IN ({placeholders}) AND is_active = 1",
+                ids,
+            )
+    return cursor.rowcount
+
+
+def import_csv_data(db_path: str | Path, import_type: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Import rows into the specified table from parsed CSV data."""
+    type_map = {
+        "products": {
+            "sql": "INSERT INTO products (name, category, safety_stock, current_stock, unit) VALUES (?, ?, ?, ?, ?)",
+            "fields": ["name", "category", "safety_stock", "current_stock", "unit"],
+            "defaults": {"category": "未分类", "safety_stock": 0, "current_stock": 0, "unit": "瓶"},
+        },
+        "suppliers": {
+            "sql": "INSERT INTO suppliers (name, price_stability_score, average_delivery_days) VALUES (?, ?, ?)",
+            "fields": ["name", "price_stability_score", "average_delivery_days"],
+            "defaults": {"price_stability_score": 80, "average_delivery_days": 3},
+        },
+        "customer-storage": {
+            "sql": "INSERT INTO customer_storage (customer_name, phone, product_name, remaining_quantity, days_until_expiry) VALUES (?, ?, ?, ?, ?)",
+            "fields": ["customer_name", "phone", "product_name", "remaining_quantity", "days_until_expiry"],
+            "defaults": {"phone": "", "remaining_quantity": 1, "days_until_expiry": 30},
+        },
+    }
+    cfg = type_map.get(import_type)
+    if not cfg:
+        raise ValueError(f"Unsupported import type: {import_type}")
+
+    inserted = 0
+    errors = []
+    with closing(connect(db_path)) as connection:
+        with connection:
+            for i, row in enumerate(rows):
+                try:
+                    values = []
+                    for f in cfg["fields"]:
+                        val = row.get(f, cfg["defaults"].get(f))
+                        if val is None or (isinstance(val, str) and not val.strip()):
+                            val = cfg["defaults"].get(f, "")
+                        if isinstance(val, str):
+                            val = val.strip()
+                        values.append(val)
+                    connection.execute(cfg["sql"], values)
+                    inserted += 1
+                except Exception as exc:
+                    errors.append({"row": i + 1, "error": str(exc)})
+    return {"imported": inserted, "errors": errors, "total": len(rows)}
+
+
+def delete_purchase_order(db_path: str | Path, order_id: int) -> bool:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                "DELETE FROM purchase_orders WHERE id = ?", (order_id,)
+            )
+    return cursor.rowcount > 0
 
 
 def _table_is_empty(connection: sqlite3.Connection, table: str) -> bool:
@@ -628,6 +926,13 @@ def _ensure_column(connection: sqlite3.Connection, table: str, column: str, defi
         connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
+def _ensure_budgets_index(connection: sqlite3.Connection) -> None:
+    try:
+        connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_budgets_year_month ON budgets(year, month)")
+    except sqlite3.OperationalError:
+        pass
+
+
 def _seed_database(connection: sqlite3.Connection) -> None:
     connection.executemany(
         "INSERT INTO products (id, name, category, safety_stock, current_stock, unit) VALUES (?, ?, ?, ?, ?, ?)",
@@ -638,7 +943,7 @@ def _seed_database(connection: sqlite3.Connection) -> None:
         SEED_ROWS["suppliers"],
     )
     connection.executemany(
-        "INSERT INTO sales_records (id, product_id, quantity, sale_date) VALUES (?, ?, ?, ?)",
+        "INSERT INTO sales_records (id, product_id, quantity, sale_date, unit_price) VALUES (?, ?, ?, ?, ?)",
         SEED_ROWS["sales_records"],
     )
     connection.executemany(
@@ -646,7 +951,7 @@ def _seed_database(connection: sqlite3.Connection) -> None:
         SEED_ROWS["purchase_orders"],
     )
     connection.executemany(
-        "INSERT INTO customer_storage (id, customer_name, product_name, remaining_quantity, days_until_expiry) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO customer_storage (id, customer_name, product_name, remaining_quantity, days_until_expiry, phone) VALUES (?, ?, ?, ?, ?, ?)",
         SEED_ROWS["customer_storage"],
     )
 
@@ -663,3 +968,204 @@ def _average_purchase_price(connection: sqlite3.Connection, product_id: int) -> 
     if row is None or row["average_price"] is None:
         return None
     return float(row["average_price"])
+
+
+def insert_operation_log(db_path: str | Path, action: str, target_type: str, target_id: int | None, details: str) -> None:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            connection.execute(
+                "INSERT INTO operation_logs (action, target_type, target_id, details, created_at) VALUES (?, ?, ?, ?, ?)",
+                (action, target_type, target_id, details, datetime.now().isoformat()),
+            )
+
+
+def get_operation_logs(db_path: str | Path, limit: int = 50) -> list[dict[str, Any]]:
+    with closing(connect(db_path)) as connection:
+        return _fetch_all(connection, "SELECT * FROM operation_logs ORDER BY id DESC LIMIT ?", (limit,))
+
+
+def batch_create_purchase_orders(db_path: str | Path, items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Create multiple purchase orders from replenishment suggestions."""
+    results = []
+    errors = []
+    with closing(connect(db_path)) as connection:
+        for i, item in enumerate(items):
+            try:
+                product_id = int(item["product_id"])
+                supplier_id = int(item.get("supplier_id", 1))
+                quantity = float(item.get("quantity", item.get("suggested_quantity", 1)))
+                unit_price = float(item.get("unit_price", 0))
+                order_date = str(item.get("order_date", datetime.now().strftime("%Y-%m-%d")))
+
+                if quantity <= 0 or unit_price <= 0:
+                    errors.append({"row": i + 1, "error": "quantity and unit_price required"})
+                    continue
+
+                with connection:
+                    avg_price = _average_purchase_price(connection, product_id) or unit_price
+                    cursor = connection.execute(
+                        "INSERT INTO purchase_orders (product_id, supplier_id, quantity, unit_price, average_price, order_date) VALUES (?, ?, ?, ?, ?, ?)",
+                        (product_id, supplier_id, quantity, unit_price, avg_price, order_date),
+                    )
+                    order_id = int(cursor.lastrowid)
+                    product = connection.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+                    quantity_after = float(product["current_stock"]) + quantity
+                    connection.execute("UPDATE products SET current_stock = ? WHERE id = ?", (quantity_after, product_id))
+                    connection.execute(
+                        "INSERT INTO inventory_records (product_id, record_type, quantity_change, quantity_after, related_order_id, reason, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        (product_id, "inbound", quantity, quantity_after, order_id, "batch_replenishment", order_date),
+                    )
+                    results.append({"product_id": product_id, "order_id": order_id, "quantity": quantity})
+            except Exception as exc:
+                errors.append({"row": i + 1, "error": str(exc)})
+    return {"created": len(results), "errors": errors, "results": results}
+
+
+def get_recent_sales_trend(db_path: str | Path, days: int = 7) -> list[dict[str, Any]]:
+    """Get daily sales totals for the last N days."""
+    start_date = (datetime.now() - timedelta(days=days - 1)).strftime("%Y-%m-%d")
+    with closing(connect(db_path)) as connection:
+        rows = _fetch_all(
+            connection,
+            "SELECT sale_date, SUM(quantity) as qty, SUM(quantity * unit_price) as revenue FROM sales_records WHERE sale_date >= ? GROUP BY sale_date ORDER BY sale_date",
+            (start_date,),
+        )
+    result = []
+    for i in range(days):
+        d = (datetime.now() - timedelta(days=days - 1 - i)).strftime("%Y-%m-%d")
+        found = next((r for r in rows if r["sale_date"] == d), None)
+        result.append({
+            "date": d,
+            "quantity": round(float(found["qty"]), 1) if found else 0,
+            "revenue": round(float(found["revenue"]), 2) if found else 0,
+        })
+    return result
+
+
+def get_monthly_budget(db_path: str | Path, year: int, month: int) -> dict[str, Any] | None:
+    with closing(connect(db_path)) as connection:
+        row = connection.execute(
+            "SELECT * FROM budgets WHERE year = ? AND month = ?",
+            (year, month),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def set_monthly_budget(db_path: str | Path, year: int, month: int, amount: float) -> dict[str, Any]:
+    now = datetime.now().isoformat()
+    with closing(connect(db_path)) as connection:
+        with connection:
+            connection.execute(
+                "INSERT OR REPLACE INTO budgets (id, year, month, amount, created_at) VALUES ("
+                "(SELECT id FROM budgets WHERE year = ? AND month = ?), ?, ?, ?, ?)",
+                (year, month, year, month, amount, now),
+            )
+    return {"year": year, "month": month, "amount": amount}
+
+
+def get_monthly_spent(db_path: str | Path, year: int, month: int) -> float:
+    month_start = f"{year:04d}-{month:02d}-01"
+    if month == 12:
+        month_end = f"{year + 1:04d}-01-01"
+    else:
+        month_end = f"{year:04d}-{month + 1:02d}-01"
+    with closing(connect(db_path)) as connection:
+        row = connection.execute(
+            "SELECT COALESCE(SUM(quantity * unit_price), 0) AS total FROM purchase_orders "
+            "WHERE order_date >= ? AND order_date < ?",
+            (month_start, month_end),
+        ).fetchone()
+    return float(row["total"])
+
+
+def create_purchase_approval(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    product_id = int(payload["product_id"])
+    supplier_id = int(payload["supplier_id"])
+    quantity = float(payload["quantity"])
+    unit_price = float(payload["unit_price"])
+    total_amount = round(quantity * unit_price, 2)
+    reason = str(payload.get("reason", ""))
+    created_at = str(payload.get("created_at", datetime.now().strftime("%Y-%m-%d")))
+
+    if total_amount <= 0:
+        raise ValueError("total_amount must be greater than 0")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                "INSERT INTO purchase_approvals (product_id, supplier_id, quantity, unit_price, total_amount, status, reason, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)",
+                (product_id, supplier_id, quantity, unit_price, total_amount, reason, created_at),
+            )
+            row = connection.execute("SELECT * FROM purchase_approvals WHERE id = ?", (int(cursor.lastrowid),)).fetchone()
+    return dict(row)
+
+
+def get_pending_approvals(db_path: str | Path) -> list[dict[str, Any]]:
+    with closing(connect(db_path)) as connection:
+        return _fetch_all(connection, "SELECT * FROM purchase_approvals WHERE status = 'pending' ORDER BY id DESC")
+
+
+def approve_purchase(db_path: str | Path, approval_id: int) -> dict[str, Any] | None:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            approval = connection.execute("SELECT * FROM purchase_approvals WHERE id = ? AND status = 'pending'", (approval_id,)).fetchone()
+            if not approval:
+                return None
+            # Create the actual purchase order
+            result = create_purchase_order(db_path, {
+                "product_id": approval["product_id"],
+                "supplier_id": approval["supplier_id"],
+                "quantity": approval["quantity"],
+                "unit_price": approval["unit_price"],
+                "order_date": datetime.now().strftime("%Y-%m-%d"),
+            })
+            connection.execute("UPDATE purchase_approvals SET status = 'approved', approved_at = ? WHERE id = ?", (datetime.now().isoformat(), approval_id))
+            return {"approval": dict(approval), "purchase_order": result["purchase_order"]}
+
+
+def reject_purchase(db_path: str | Path, approval_id: int) -> bool:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute("UPDATE purchase_approvals SET status = 'rejected' WHERE id = ? AND status = 'pending'", (approval_id,))
+    return cursor.rowcount > 0
+
+
+def create_inventory_audit(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    product_id = int(payload["product_id"])
+    actual_stock = float(payload["actual_stock"])
+    note = str(payload.get("note", ""))
+    audited_at = str(payload.get("audited_at", datetime.now().strftime("%Y-%m-%d")))
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            product = connection.execute("SELECT * FROM products WHERE id = ? AND is_active = 1", (product_id,)).fetchone()
+            if not product:
+                raise ValueError("product_id does not exist")
+            system_stock = float(product["current_stock"])
+            discrepancy = actual_stock - system_stock
+            cursor = connection.execute(
+                "INSERT INTO inventory_audits (product_id, system_stock, actual_stock, discrepancy, note, audited_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (product_id, system_stock, actual_stock, round(discrepancy, 1), note, audited_at),
+            )
+            row = connection.execute("SELECT * FROM inventory_audits WHERE id = ?", (int(cursor.lastrowid),)).fetchone()
+    return dict(row)
+
+
+def get_inventory_audits(db_path: str | Path) -> list[dict[str, Any]]:
+    with closing(connect(db_path)) as connection:
+        return _fetch_all(connection, "SELECT * FROM inventory_audits ORDER BY id DESC LIMIT 50")
+
+
+def get_todays_report(db_path: str | Path) -> dict[str, Any] | None:
+    """Get the latest report for today if it exists."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    with closing(connect(db_path)) as connection:
+        row = connection.execute(
+            "SELECT * FROM agent_reports WHERE date(created_at) = ? ORDER BY id DESC LIMIT 1",
+            (today,),
+        ).fetchone()
+    if row is None:
+        return None
+    item = dict(row)
+    item["metrics"] = json.loads(item["metrics"])
+    return item

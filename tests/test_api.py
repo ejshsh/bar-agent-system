@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from backend.db import initialize_database
@@ -459,6 +460,85 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(fail_payload["error"], "invalid_inventory_adjustment")
         product = next(item for item in dashboard["products"] if item["id"] == 1)
         self.assertEqual(product["current_stock"], 1)
+
+    def test_agent_report_preview_does_not_save_history(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, _, body = app.handle_post(
+                "/api/agent-reports",
+                json.dumps({"created_at": datetime.now().isoformat()}),
+            )
+            payload = json.loads(body)
+            history = json.loads(app.handle_get("/api/agent-reports")[2])
+
+        self.assertEqual(status, 200)
+        self.assertIn("title", payload)
+        self.assertIn("period", payload)
+        self.assertIn("content", payload)
+        self.assertIn("metrics", payload)
+        self.assertEqual(history["items"], [])
+
+    def test_save_list_detail_today_and_delete_agent_report(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+            today = datetime.now().isoformat()
+
+            save_status, _, save_body = app.handle_post(
+                "/api/agent-reports/save",
+                json.dumps(
+                    {
+                        "title": "测试经营报告",
+                        "period": today[:7],
+                        "content": "## 测试经营报告\n- 采购正常",
+                        "metrics": {"purchase_amount": 1000, "low_stock_count": 2},
+                        "created_at": today,
+                    }
+                ),
+            )
+            saved = json.loads(save_body)
+            list_payload = json.loads(app.handle_get("/api/agent-reports")[2])
+            detail_status, _, detail_body = app.handle_get(f"/api/agent-reports/{saved['id']}")
+            today_status, _, today_body = app.handle_get("/api/todays-report")
+            delete_status, _, delete_body = app.handle_delete(f"/api/agent-reports/{saved['id']}")
+            after_delete = json.loads(app.handle_get(f"/api/agent-reports/{saved['id']}")[2])
+
+        self.assertEqual(save_status, 201)
+        self.assertEqual(saved["metrics"]["purchase_amount"], 1000)
+        self.assertEqual(len(list_payload["items"]), 1)
+        self.assertEqual(detail_status, 200)
+        self.assertEqual(json.loads(detail_body)["title"], "测试经营报告")
+        self.assertEqual(today_status, 200)
+        self.assertEqual(json.loads(today_body)["id"], saved["id"])
+        self.assertEqual(delete_status, 200)
+        self.assertTrue(json.loads(delete_body)["deleted"])
+        self.assertEqual(after_delete["error"], "report_not_found")
+
+    def test_agent_ask_falls_back_to_rules_without_api_key_and_rejects_empty_question(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, _, body = app.handle_post(
+                "/api/agent-ask",
+                json.dumps({"question": "本周哪些酒水快缺货？"}),
+            )
+            payload = json.loads(body)
+            empty_status, _, empty_body = app.handle_post(
+                "/api/agent-ask",
+                json.dumps({"question": ""}),
+            )
+
+        self.assertEqual(status, 200)
+        self.assertIn("answer", payload)
+        self.assertIn("补货", payload["answer"])
+        self.assertEqual(empty_status, 400)
+        self.assertEqual(json.loads(empty_body)["error"], "invalid_agent_ask")
 
 
 if __name__ == "__main__":
