@@ -1,6 +1,9 @@
 /* ───────── Global state ───────── */
 
-const API_BASE_URL = "http://127.0.0.1:8000";
+const API_HOST = window.location.hostname && window.location.hostname !== ""
+  ? window.location.hostname
+  : "127.0.0.1";
+const API_BASE_URL = `http://${API_HOST}:8000`;
 
 const navLinks = document.querySelectorAll(".nav-link");
 const agentQuestions = document.querySelectorAll(".agent-question");

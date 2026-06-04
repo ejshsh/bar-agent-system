@@ -40,10 +40,17 @@ start.bat
 http://127.0.0.1:8765/index.html
 ```
 
+手机在同一个 Wi-Fi 下访问：
+
+1. 电脑先运行 `start.bat`。
+2. 在电脑 PowerShell 执行 `ipconfig`，找到当前 Wi-Fi 或以太网的 `IPv4 地址`。
+3. 手机浏览器打开 `http://电脑IPv4地址:8765/index.html`，例如 `http://192.168.1.23:8765/index.html`。
+4. 如果手机打不开，检查 Windows 防火墙是否允许 Python 访问专用网络。
+
 也可以手动在项目目录启动本地静态服务器：
 
 ```powershell
-python -m http.server 8765 --bind 127.0.0.1
+python -m http.server 8765 --bind 0.0.0.0
 ```
 
 然后访问：

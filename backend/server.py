@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import argparse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -774,7 +775,7 @@ def make_handler(app: BarApi) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
-def run(host: str = "127.0.0.1", port: int = 8000, db_path: str | Path = DEFAULT_DB_PATH) -> None:
+def run(host: str = "0.0.0.0", port: int = 8000, db_path: str | Path = DEFAULT_DB_PATH) -> None:
     app = create_app(db_path)
     server = ThreadingHTTPServer((host, port), make_handler(app))
     print(f"Bar Agent API listening on http://{host}:{port}")
@@ -782,4 +783,8 @@ def run(host: str = "127.0.0.1", port: int = 8000, db_path: str | Path = DEFAULT
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(description="Run Bar Agent API server")
+    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=8000)
+    args = parser.parse_args()
+    run(host=args.host, port=args.port)
