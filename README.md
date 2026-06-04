@@ -1,265 +1,191 @@
-# 酒吧酒水采购、仓储与客户存酒管理 AI Agent 系统
+# Bar Agent
 
-这是一个面向酒吧经营场景的管理系统原型，覆盖酒水采购、仓储库存、客户存酒、供应商分析、智能补货和活动建议。当前仓库已包含技术方案文档和一个 Apple 风格的静态前端原型。
+> AI 辅助酒水采购、仓储库存与客户存酒管理系统
 
-## 当前内容
+Bar Agent 是一个面向酒吧、餐饮门店和小型仓储场景的经营管理原型系统。系统围绕采购计划、库存周转、客户存酒、供应商评价和经营分析构建，结合规则引擎与 AI Agent，帮助门店快速识别缺货、积压、临期存酒和采购异常，并生成补货建议与经营报告。
 
-- `index.html`：静态前端原型入口。
-- `styles.css`：Apple 风格视觉系统、响应式布局和页面样式。
-- `app.js`：全局状态、DOM 引用和启动初始化。
-- `js/`：前端模块化脚本，包含工具函数、首页渲染、业务区块、弹窗流程和 Agent 问答。
-- `backend/db.py`：SQLite 建表、种子数据和数据读取。
-- `backend/rules.py`：缺货、积压、临期存酒、采购异常、经营报告和 Agent 建议规则。
-- `backend/ai_agent.py`：DeepSeek API 调用封装；未配置密钥时自动回退规则引擎。
-- `backend/server.py`：基于 Python 标准库的 JSON API 服务。
-- `manifest.json` / `sw.js`：PWA 配置和基础离线缓存。
-- `tests/`：后端规则和 API 单元测试。
-- `docs/superpowers/specs/2026-06-04-bar-ai-agent-technical-design.md`：系统技术方案。
-- `docs/superpowers/specs/2026-06-04-bar-frontend-apple-prototype-design.md`：前端原型设计说明。
-- `docs/superpowers/plans/2026-06-04-bar-frontend-apple-prototype.md`：前端原型实现计划。
+该项目由 Codex 辅助完成需求拆解、系统设计、功能开发、调试验证和可运行版本打包，适合作为 AI + 供应链库存管理、仓储规划、采购计划优化方向的项目展示。
 
-## 查看前端原型
+## 核心亮点
 
-前端会优先请求后端：
+- **经营驾驶舱**：集中展示今日营收、库存健康、缺货预警、临期存酒、供应商表现和经营建议。
+- **智能补货规则**：基于安全库存、当前库存、历史消耗和供应商交付周期，输出补货优先级与建议采购量。
+- **供应商评价**：记录采购报价、交付周期和价格稳定性，支持供应商横向对比与推荐。
+- **AI Agent 分析**：支持自然语言查询缺货商品、积压库存、采购建议、供应商稳定性和月度经营报告。
+- **权限与审计**：区分管理员和店员权限，记录关键操作日志，危险操作前自动备份数据库。
+- **可交付运行包**：支持一键启动、局域网手机访问和 zip 打包交付。
+
+## 功能模块
+
+| 模块 | 能力 |
+| --- | --- |
+| 采购管理 | 采购入库、自定义酒水、自定义供应商、采购记录、价格异常识别 |
+| 库存管理 | 库存出库、盘点调整、损耗记录、缺货预警、积压识别 |
+| 客户存酒 | 存酒登记、编辑、删除、取酒核销、到期提醒、客户召回分析 |
+| 供应商管理 | 供应商资料、报价记录、交付周期、价格稳定性、供应商评分 |
+| AI Agent | 经营问答、补货建议、库存分析、供应商对比、月度报告 |
+| 系统管理 | 角色权限、系统设置、操作日志、数据备份、打包交付 |
+
+## 技术架构
 
 ```text
-http://127.0.0.1:8000/api/dashboard
+Frontend
+  HTML / CSS / JavaScript
+  Apple-style dashboard / responsive UI / PWA manifest
+
+Backend
+  Python standard library HTTP server
+  JSON API / role permission / operation audit
+
+Database
+  SQLite
+  Products / Suppliers / Purchase Orders / Inventory Records
+  Sales Records / Customer Storage / Reports / Settings
+
+AI & Rules
+  Rule Engine
+  DeepSeek API optional integration
+  Fallback analysis when API key is not configured
 ```
 
-如果后端未启动，页面会自动保留演示数据，并在顶部显示“演示数据”。
+## 目录结构
 
-推荐直接运行：
+```text
+.
+├─ index.html              # 前端入口
+├─ styles.css              # 视觉样式
+├─ app.js                  # 全局状态和初始化
+├─ js/                     # 前端功能模块
+├─ backend/
+│  ├─ server.py            # JSON API 服务
+│  ├─ db.py                # SQLite 建表与数据操作
+│  ├─ rules.py             # 库存、采购、供应商分析规则
+│  └─ ai_agent.py          # DeepSeek 调用与回退逻辑
+├─ tests/                  # API、规则和打包测试
+├─ tools/package_portable.py
+├─ start.bat               # 本地一键启动
+└─ README.md
+```
+
+## 快速启动
+
+Windows 下直接双击：
 
 ```text
 start.bat
 ```
 
-脚本会启动后端 API 和前端静态服务，然后打开：
+启动后访问：
 
 ```text
 http://127.0.0.1:8765/index.html
 ```
 
-手机在同一个 Wi-Fi 下访问：
-
-1. 电脑先运行 `start.bat`。
-2. 在电脑 PowerShell 执行 `ipconfig`，找到当前 Wi-Fi 或以太网的 `IPv4 地址`。
-3. 手机浏览器打开 `http://电脑IPv4地址:8765/index.html`，例如 `http://192.168.1.23:8765/index.html`。
-4. 如果手机打不开，检查 Windows 防火墙是否允许 Python 访问专用网络。
-
-也可以手动在项目目录启动本地静态服务器：
-
-```powershell
-python -m http.server 8765 --bind 0.0.0.0
-```
-
-然后访问：
+默认账号：
 
 ```text
-http://127.0.0.1:8765/index.html
+管理员：admin / admin123
+店员：staff / staff123
 ```
 
-## 已验证项
-
-- `index.html` 已引用 `styles.css` 和 `app.js`。
-- `index.html` 已按顺序引用 `js/utils.js`、`js/dashboard.js`、`js/sections.js`、`js/modals.js`、`js/agent.js` 和 `app.js`。
-- 页面包含首屏、库存预警、AI Agent、客户存酒、活动建议和供应商表现模块。
-- `app.js` 通过 `node --check app.js` 语法检查。
-- 前端会请求 `/api/dashboard`，成功后渲染真实指标和建议，失败后显示离线提示。
-- 前端静态检查通过 `node tests/check_frontend.js`。
-- 后端单元测试通过 `python -m unittest discover -s tests -v`。
-- CSS 未使用视口宽度字体、装饰渐变或负字距。
-- 已保留移动端断点，避免主要模块在窄屏下横向拥挤。
-
-## 启动后端 API
-
-当前后端为了保证离线可运行，先使用 Python 标准库实现 JSON API，不依赖 FastAPI 或 Flask。后续可以在接口稳定后迁移到 FastAPI。
-
-启动命令：
-
-```powershell
-python -m backend.server
-```
-
-如果 PowerShell 提示 `python` 不是内部或外部命令，可以使用 Codex 自带 Python：
-
-```powershell
-& 'C:\Users\ROG\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m backend.server
-```
-
-如果后端已经在运行，修改代码后需要先停止旧 PowerShell 进程，再重新执行启动命令，否则浏览器仍会连到旧接口。
-
-默认地址：
+后端 API 默认运行在：
 
 ```text
 http://127.0.0.1:8000
 ```
 
-可用接口：
+健康检查：
 
 ```text
-GET /api/health
-GET /api/dashboard
-GET /api/products
-GET /api/suppliers
-GET /api/customer-storage
-GET /api/supplier-price-quotes?product_id={id}
-GET /api/chart-data
-GET /api/recent-sales-trend
-GET /api/revenue-forecast
-GET /api/todays-report
-GET /api/agent-reports
-GET /api/agent-reports/{id}
-GET /api/backup/info
-GET /api/operation-logs
-GET /api/budget?year={year}&month={month}
-GET /api/settings
-POST /api/auth/login
-POST /api/products
-POST /api/suppliers
-POST /api/supplier-price-quotes
-POST /api/purchase-orders
-POST /api/purchase-orders/batch
-POST /api/sales-records
-POST /api/inventory-adjustments
-POST /api/customer-storage
-POST /api/customer-storage/{id}/pickup
-POST /api/customer-storage/batch-delete
-POST /api/agent-reports
-POST /api/agent-reports/save
-POST /api/agent-ask
-POST /api/backup
-POST /api/import
-PUT /api/customer-storage/{id}
-PUT /api/budget
-PUT /api/settings
-DELETE /api/customer-storage/{id}
-DELETE /api/agent-reports/{id}
-DELETE /api/products/{id}
-DELETE /api/suppliers/{id}
+http://127.0.0.1:8000/api/health
 ```
 
-采购入库接口示例：
+## 手机局域网访问
 
-```powershell
-Invoke-WebRequest `
-  -UseBasicParsing `
-  -Method POST `
-  -ContentType "application/json" `
-  -Body '{"product_id":1,"supplier_id":1,"quantity":10,"unit_price":210,"order_date":"2026-06-04"}' `
-  "http://127.0.0.1:8000/api/purchase-orders"
-```
+电脑和手机连接同一个 Wi-Fi 后：
 
-提交成功后，系统会写入采购单、生成 `inventory_records` 入库流水，并更新商品当前库存。前端点击“新增采购单”即可打开采购入库表单。
-
-采购入库表单支持两种方式：
-
-- 选择已有酒水商品和供应商。
-- 临时新建酒水商品和供应商，再直接完成本次采购入库。
-- 删除选中的酒水商品或供应商。删除采用软删除，历史采购和库存流水不会被破坏，删除后的条目不再出现在选择列表中。
-
-客户存酒管理支持：
-
-- 新增客户存酒。
-- 编辑客户姓名、存酒名称、剩余酒量和到期天数。
-- 取酒核销，会扣减剩余酒量；核销数量不能超过当前剩余量。
-- 剩余酒量扣到 0 后，该存酒会从当前有效存酒列表中隐藏，核销记录保留在数据库中。
-- 删除客户存酒记录。删除采用软删除，历史数据不直接物理移除。
-
-销售出库支持：
-
-- 选择已有酒水商品。
-- 输入销售或消耗数量。
-- 提交后写入 `sales_records`，生成出库库存流水，并扣减当前库存。
-- 库存不足时后端会拒绝出库。
-
-库存盘点 / 损耗支持：
-
-- 库存盘点：输入实际盘点数量，系统自动计算账实差异并更新当前库存。
-- 损耗记录：记录破损、过期、试饮、赠饮等损耗原因，并扣减当前库存。
-- 所有盘点和损耗都会写入 `inventory_records`，便于后续 AI 分析损耗异常和账实不符。
-- 损耗数量超过当前库存时，后端会拒绝提交。
-
-供应商报价对比支持：
-
-- 为指定酒水和供应商录入报价单价、交付天数和报价日期。
-- 按酒水查询供应商报价对比，自动标记最低价和最快交付。
-- 系统会根据报价、交付速度和供应商价格稳定性生成推荐供应商。
-- 前端点击“报价对比”即可录入报价并查看当前酒水的推荐采购来源。
-
-经营报告和 AI Agent 支持：
-
-- `POST /api/agent-reports` 生成经营报告预览，不自动保存。
-- `POST /api/agent-reports/save` 保存报告到 `agent_reports` 历史记录。
-- `GET /api/todays-report` 返回当天最近保存的一份报告。
-- `POST /api/agent-ask` 支持自然语言经营问答；配置 DeepSeek 密钥时调用模型，未配置或调用失败时回退规则引擎。
-- 浏览器打印 / 导出 PDF 时会应用报告打印样式，隐藏导航和操作按钮。
-
-登录、权限和审计：
-
-- 默认管理员账号：`admin` / `admin123`。
-- 默认店员账号：`staff` / `staff123`。
-- 前端所有 API 请求会附带 `X-User-Role` 和 `X-User-Name`。
-- 后端会阻止店员执行采购、删除、预算、备份、导入、报告保存等管理动作。
-- 店员可执行快速出库、客户取酒和客户联系，并可查看库存/存酒/Agent。
-- `operation_logs` 会记录操作人和角色，便于追溯。
-- 删除商品、供应商、客户存酒、报告、采购单等危险操作前会自动创建数据库备份。
-- 顶部“吧台工作台”提供店员常用入口：快速出库、客户存酒和 Agent 问答。
-
-系统设置：
-
-- 在顶部“更多 → 系统设置”中维护酒吧名称、默认安全库存、管理员显示名/密码和店员显示名/密码。
-- 酒吧名称会同步到页面品牌和浏览器标题。
-- 默认安全库存会作为“采购入库 → 新建酒水”的安全库存默认值。
-- 密码以哈希形式保存在本地 SQLite 数据库，不会通过 `GET /api/settings` 返回明文。
-- 修改设置需要管理员权限；店员只能查看。
-
-DeepSeek 配置：
-
-- 复制 `.env.example` 为 `.env`。
-- 在 `.env` 中填写 `DEEPSEEK_API_KEY=你的密钥`。
-- `.env` 已被 `.gitignore` 忽略，不要提交真实密钥。
-
-其他增强能力：
-
-- 图表数据：采购趋势、销量排行、品类分布、库存状态和利润分析。
-- 预算：设置月度采购预算并在采购时提示超预算风险。
-- 备份：手动创建 SQLite 数据库备份，备份文件保存在 `data/backups/`。
-- 导入：支持商品、供应商、客户存酒等基础数据导入。
-- PWA：提供 `manifest.json` 和 `sw.js`，可作为本地类应用使用。
-
-首次启动会自动创建 SQLite 数据库：
+1. 电脑运行 `start.bat`。
+2. 在电脑命令行执行 `ipconfig`，找到当前网络的 IPv4 地址。
+3. 手机浏览器打开：
 
 ```text
-data/bar_agent.db
+http://电脑IPv4地址:8765/index.html
 ```
 
-运行测试：
+例如：
+
+```text
+http://192.168.1.23:8765/index.html
+```
+
+如果无法访问，需要允许 Windows 防火墙中的 Python 专用网络访问。
+
+## DeepSeek 配置
+
+项目支持 DeepSeek API，但不是必须配置。未配置密钥时，AI Agent 会自动回退到本地规则引擎。
 
 ```powershell
-python -m unittest discover -s tests -v
-node --check app.js
-node --check js\utils.js
-node --check js\dashboard.js
-node --check js\sections.js
-node --check js\modals.js
-node --check js\agent.js
-node tests\check_frontend.js
+copy .env.example .env
 ```
 
-## 打包给老板
+在 `.env` 中填写：
 
-生成运行包：
+```text
+DEEPSEEK_API_KEY=你的密钥
+```
+
+`.env` 已被 `.gitignore` 忽略，不会上传到 GitHub。
+
+## 打包交付
+
+生成老板可直接运行的便携版本：
 
 ```powershell
 python tools\package_portable.py
 ```
 
-输出：
+输出位置：
 
 ```text
 dist\BarAgent-Portable\
 dist\BarAgent-Portable.zip
 ```
 
-把 zip 发给老板，老板解压后双击 `启动系统.bat` 即可打开。运行包不会包含 `.env`、`.git`、测试目录、当前数据库或缓存文件。
+运行包不会包含 `.env`、`.git`、测试目录、当前数据库或缓存文件。老板解压后双击 `启动系统.bat` 即可打开系统。
+
+## 测试验证
+
+后端、规则和打包测试：
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+前端静态检查：
+
+```powershell
+node tests\check_frontend.js
+```
+
+关键验证项：
+
+- API 返回 JSON 数据并支持 dashboard 渲染
+- 采购、库存、客户存酒、供应商、报告等核心接口可用
+- 店员权限无法执行高危管理动作
+- 删除类操作前自动创建数据库备份
+- 打包产物不包含 `.env`、数据库和缓存文件
+
+## 数据与安全
+
+- 默认使用 SQLite，本地首次启动会自动生成 `data/bar_agent.db`。
+- 操作日志会记录操作人、角色、操作类型和对象。
+- 管理员与店员密码以哈希形式保存在数据库中。
+- `.env`、数据库、备份、缓存和打包产物均已加入忽略规则。
+
+## 适用场景
+
+- 供应链库存管理项目展示
+- 餐饮/酒吧门店经营原型
+- AI Agent 辅助经营分析 Demo
+- 采购计划、仓储管理和供应商评价课程项目
+- 物流规划、库存优化、资源配置相关简历项目
