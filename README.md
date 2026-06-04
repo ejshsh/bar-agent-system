@@ -83,6 +83,8 @@ GET /api/customer-storage
 POST /api/products
 POST /api/suppliers
 POST /api/purchase-orders
+DELETE /api/products/{id}
+DELETE /api/suppliers/{id}
 ```
 
 采购入库接口示例：
@@ -102,6 +104,7 @@ Invoke-WebRequest `
 
 - 选择已有酒水商品和供应商。
 - 临时新建酒水商品和供应商，再直接完成本次采购入库。
+- 删除选中的酒水商品或供应商。删除采用软删除，历史采购和库存流水不会被破坏，删除后的条目不再出现在选择列表中。
 
 首次启动会自动创建 SQLite 数据库：
 

@@ -15,6 +15,9 @@ assert(script.includes("resolveProductId"));
 assert(script.includes("resolveSupplierId"));
 assert(script.includes("postJson(\"/api/products\""));
 assert(script.includes("postJson(\"/api/suppliers\""));
+assert(script.includes("deleteSelectedProduct"));
+assert(script.includes("deleteSelectedSupplier"));
+assert(script.includes("method: \"DELETE\""));
 assert(script.includes("escapeHtml"));
 assert(html.includes("data-api-status"));
 assert(html.includes("data-live-summary"));
@@ -23,6 +26,8 @@ assert(html.includes("data-purchase-form"));
 assert(html.includes("new_product_name"));
 assert(html.includes("new_supplier_name"));
 assert(html.includes("data-mode-toggle=\"product\""));
+assert(html.includes("data-delete-product"));
+assert(html.includes("data-delete-supplier"));
 assert(html.includes("data-metric=\"low_stock_count\""));
 
 console.log("frontend checks passed");

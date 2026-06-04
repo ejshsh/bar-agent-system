@@ -186,6 +186,12 @@ button {
   color: var(--primary);
 }
 
+.button.danger {
+  background: var(--canvas);
+  border-color: #bf4800;
+  color: #bf4800;
+}
+
 .button.small {
   font-size: 14px;
   min-height: 40px;

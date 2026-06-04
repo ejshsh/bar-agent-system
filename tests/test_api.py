@@ -119,6 +119,50 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(any(item["name"] == "自定义龙舌兰" for item in dashboard["products"]))
         self.assertTrue(any(item["name"] == "自定义供应商" for item in dashboard["suppliers"]))
 
+    def test_delete_product_and_supplier_hides_them_from_dashboard(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            product = json.loads(
+                app.handle_post(
+                    "/api/products",
+                    json.dumps(
+                        {
+                            "name": "待删除酒水",
+                            "category": "测试",
+                            "safety_stock": 1,
+                            "current_stock": 0,
+                            "unit": "瓶",
+                        }
+                    ),
+                )[2]
+            )["product"]
+            supplier = json.loads(
+                app.handle_post(
+                    "/api/suppliers",
+                    json.dumps(
+                        {
+                            "name": "待删除供应商",
+                            "price_stability_score": 80,
+                            "average_delivery_days": 3,
+                        }
+                    ),
+                )[2]
+            )["supplier"]
+
+            product_status, _, product_body = app.handle_delete(f"/api/products/{product['id']}")
+            supplier_status, _, supplier_body = app.handle_delete(f"/api/suppliers/{supplier['id']}")
+            dashboard = json.loads(app.handle_get("/api/dashboard")[2])
+
+        self.assertEqual(product_status, 200)
+        self.assertEqual(supplier_status, 200)
+        self.assertTrue(json.loads(product_body)["deleted"])
+        self.assertTrue(json.loads(supplier_body)["deleted"])
+        self.assertFalse(any(item["name"] == "待删除酒水" for item in dashboard["products"]))
+        self.assertFalse(any(item["name"] == "待删除供应商" for item in dashboard["suppliers"]))
+
 
 if __name__ == "__main__":
     unittest.main()

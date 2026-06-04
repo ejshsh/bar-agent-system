@@ -13,14 +13,16 @@ CREATE TABLE IF NOT EXISTS products (
     category TEXT NOT NULL,
     safety_stock REAL NOT NULL,
     current_stock REAL NOT NULL,
-    unit TEXT NOT NULL
+    unit TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS suppliers (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     price_stability_score REAL NOT NULL,
-    average_delivery_days REAL NOT NULL
+    average_delivery_days REAL NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS sales_records (
@@ -105,6 +107,8 @@ def initialize_database(db_path: str | Path) -> None:
         with connection:
             connection.executescript(SCHEMA)
             _ensure_purchase_order_quantity(connection)
+            _ensure_column(connection, "products", "is_active", "INTEGER NOT NULL DEFAULT 1")
+            _ensure_column(connection, "suppliers", "is_active", "INTEGER NOT NULL DEFAULT 1")
             if _table_is_empty(connection, "products"):
                 _seed_database(connection)
 
@@ -112,8 +116,8 @@ def initialize_database(db_path: str | Path) -> None:
 def load_dataset(db_path: str | Path) -> dict[str, list[dict[str, Any]]]:
     with closing(connect(db_path)) as connection:
         return {
-            "products": _fetch_all(connection, "SELECT * FROM products ORDER BY id"),
-            "suppliers": _fetch_all(connection, "SELECT * FROM suppliers ORDER BY id"),
+            "products": _fetch_all(connection, "SELECT * FROM products WHERE is_active = 1 ORDER BY id"),
+            "suppliers": _fetch_all(connection, "SELECT * FROM suppliers WHERE is_active = 1 ORDER BY id"),
             "sales_records": _fetch_all(connection, "SELECT * FROM sales_records ORDER BY id"),
             "purchase_orders": _fetch_all(connection, "SELECT * FROM purchase_orders ORDER BY id"),
             "inventory_records": _fetch_all(connection, "SELECT * FROM inventory_records ORDER BY id"),
@@ -195,8 +199,8 @@ def create_purchase_order(db_path: str | Path, payload: dict[str, Any]) -> dict[
 
     with closing(connect(db_path)) as connection:
         with connection:
-            product = connection.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
-            supplier = connection.execute("SELECT * FROM suppliers WHERE id = ?", (supplier_id,)).fetchone()
+            product = connection.execute("SELECT * FROM products WHERE id = ? AND is_active = 1", (product_id,)).fetchone()
+            supplier = connection.execute("SELECT * FROM suppliers WHERE id = ? AND is_active = 1", (supplier_id,)).fetchone()
             if product is None:
                 raise ValueError("product_id does not exist")
             if supplier is None:
@@ -240,18 +244,39 @@ def create_purchase_order(db_path: str | Path, payload: dict[str, Any]) -> dict[
     }
 
 
+def deactivate_product(db_path: str | Path, product_id: int) -> bool:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                "UPDATE products SET is_active = 0 WHERE id = ? AND is_active = 1",
+                (product_id,),
+            )
+    return cursor.rowcount > 0
+
+
+def deactivate_supplier(db_path: str | Path, supplier_id: int) -> bool:
+    with closing(connect(db_path)) as connection:
+        with connection:
+            cursor = connection.execute(
+                "UPDATE suppliers SET is_active = 0 WHERE id = ? AND is_active = 1",
+                (supplier_id,),
+            )
+    return cursor.rowcount > 0
+
+
 def _table_is_empty(connection: sqlite3.Connection, table: str) -> bool:
     row = connection.execute(f"SELECT COUNT(*) AS count FROM {table}").fetchone()
     return row["count"] == 0
 
 
 def _ensure_purchase_order_quantity(connection: sqlite3.Connection) -> None:
-    columns = {
-        row["name"]
-        for row in connection.execute("PRAGMA table_info(purchase_orders)").fetchall()
-    }
-    if "quantity" not in columns:
-        connection.execute("ALTER TABLE purchase_orders ADD COLUMN quantity REAL NOT NULL DEFAULT 0")
+    _ensure_column(connection, "purchase_orders", "quantity", "REAL NOT NULL DEFAULT 0")
+
+
+def _ensure_column(connection: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def _seed_database(connection: sqlite3.Connection) -> None:

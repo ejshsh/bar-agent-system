@@ -24,6 +24,8 @@ const productExistingPanel = document.querySelector("[data-product-existing]");
 const productNewPanel = document.querySelector("[data-product-new]");
 const supplierExistingPanel = document.querySelector("[data-supplier-existing]");
 const supplierNewPanel = document.querySelector("[data-supplier-new]");
+const deleteProductButton = document.querySelector("[data-delete-product]");
+const deleteSupplierButton = document.querySelector("[data-delete-supplier]");
 
 let agentAnswers = {
   replenishment: {
@@ -294,6 +296,8 @@ function bindPurchaseForm() {
   });
 
   purchaseForm.addEventListener("submit", submitPurchaseOrder);
+  deleteProductButton.addEventListener("click", deleteSelectedProduct);
+  deleteSupplierButton.addEventListener("click", deleteSelectedSupplier);
 }
 
 function closePurchaseModal() {
@@ -387,6 +391,43 @@ async function postJson(path, payload) {
   }
 
   return response.json();
+}
+
+async function deleteSelectedProduct() {
+  const option = productSelect.selectedOptions[0];
+  if (!option || !confirm(`确认删除酒水「${option.textContent}」吗？`)) {
+    return;
+  }
+
+  await deleteResource(`/api/products/${productSelect.value}`, "酒水已删除。");
+}
+
+async function deleteSelectedSupplier() {
+  const option = supplierSelect.selectedOptions[0];
+  if (!option || !confirm(`确认删除供应商「${option.textContent}」吗？`)) {
+    return;
+  }
+
+  await deleteResource(`/api/suppliers/${supplierSelect.value}`, "供应商已删除。");
+}
+
+async function deleteResource(path, successMessage) {
+  purchaseMessage.textContent = "正在删除...";
+  purchaseMessage.className = "form-message";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, { method: "DELETE" });
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
+
+    purchaseMessage.textContent = successMessage;
+    purchaseMessage.className = "form-message success";
+    await loadDashboard();
+  } catch (error) {
+    purchaseMessage.textContent = `删除失败：${error.message}`;
+    purchaseMessage.className = "form-message error";
+  }
 }
 
 async function loadDashboard() {

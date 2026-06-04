@@ -6,7 +6,15 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from .db import create_product, create_purchase_order, create_supplier, initialize_database, load_dataset
+from .db import (
+    create_product,
+    create_purchase_order,
+    create_supplier,
+    deactivate_product,
+    deactivate_supplier,
+    initialize_database,
+    load_dataset,
+)
 from .rules import build_dashboard
 
 
@@ -36,6 +44,21 @@ class BarApi:
             return self._json(200, {"items": dataset["suppliers"]})
         if route == "/api/customer-storage":
             return self._json(200, {"items": dataset["customer_storage"]})
+
+        return self._json(404, {"error": "not_found", "path": route})
+
+    def handle_delete(self, path: str) -> tuple[int, dict[str, str], str]:
+        route = urlparse(path).path
+        initialize_database(self.db_path)
+        segments = [segment for segment in route.split("/") if segment]
+
+        if len(segments) == 3 and segments[:2] == ["api", "products"]:
+            deleted = deactivate_product(self.db_path, int(segments[2]))
+            return self._json(200 if deleted else 404, {"deleted": deleted})
+
+        if len(segments) == 3 and segments[:2] == ["api", "suppliers"]:
+            deleted = deactivate_supplier(self.db_path, int(segments[2]))
+            return self._json(200 if deleted else 404, {"deleted": deleted})
 
         return self._json(404, {"error": "not_found", "path": route})
 
@@ -109,6 +132,16 @@ def make_handler(app: BarApi) -> type[BaseHTTPRequestHandler]:
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+
+        def do_DELETE(self) -> None:
+            status, headers, response_body = app.handle_delete(self.path)
+            encoded = response_body.encode("utf-8")
+            self.send_response(status)
+            for key, value in headers.items():
+                self.send_header(key, value)
+            self.send_header("Content-Length", str(len(encoded)))
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
 
         def log_message(self, format: str, *args: Any) -> None:
