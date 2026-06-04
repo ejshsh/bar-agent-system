@@ -80,8 +80,10 @@ GET /api/dashboard
 GET /api/products
 GET /api/suppliers
 GET /api/customer-storage
+GET /api/supplier-price-quotes?product_id={id}
 POST /api/products
 POST /api/suppliers
+POST /api/supplier-price-quotes
 POST /api/purchase-orders
 POST /api/sales-records
 POST /api/inventory-adjustments
@@ -133,6 +135,13 @@ Invoke-WebRequest `
 - 损耗记录：记录破损、过期、试饮、赠饮等损耗原因，并扣减当前库存。
 - 所有盘点和损耗都会写入 `inventory_records`，便于后续 AI 分析损耗异常和账实不符。
 - 损耗数量超过当前库存时，后端会拒绝提交。
+
+供应商报价对比支持：
+
+- 为指定酒水和供应商录入报价单价、交付天数和报价日期。
+- 按酒水查询供应商报价对比，自动标记最低价和最快交付。
+- 系统会根据报价、交付速度和供应商价格稳定性生成推荐供应商。
+- 前端点击“报价对比”即可录入报价并查看当前酒水的推荐采购来源。
 
 首次启动会自动创建 SQLite 数据库：
 

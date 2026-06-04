@@ -163,6 +163,74 @@ class ApiTest(unittest.TestCase):
         self.assertFalse(any(item["name"] == "待删除酒水" for item in dashboard["products"]))
         self.assertFalse(any(item["name"] == "待删除供应商" for item in dashboard["suppliers"]))
 
+    def test_create_supplier_price_quote_records_offer(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            status, _, body = app.handle_post(
+                "/api/supplier-price-quotes",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "supplier_id": 2,
+                        "unit_price": 198,
+                        "delivery_days": 3,
+                        "quoted_at": "2026-06-04",
+                    }
+                ),
+            )
+            payload = json.loads(body)
+
+        self.assertEqual(status, 201)
+        self.assertEqual(payload["quote"]["product_id"], 1)
+        self.assertEqual(payload["quote"]["supplier_id"], 2)
+        self.assertEqual(payload["quote"]["unit_price"], 198)
+        self.assertEqual(payload["quote"]["delivery_days"], 3)
+
+    def test_supplier_quote_comparison_marks_lowest_price_and_fastest_delivery(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "bar.db"
+            initialize_database(db_path)
+            app = create_app(db_path)
+
+            app.handle_post(
+                "/api/supplier-price-quotes",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "supplier_id": 1,
+                        "unit_price": 220,
+                        "delivery_days": 2,
+                        "quoted_at": "2026-06-04",
+                    }
+                ),
+            )
+            app.handle_post(
+                "/api/supplier-price-quotes",
+                json.dumps(
+                    {
+                        "product_id": 1,
+                        "supplier_id": 2,
+                        "unit_price": 198,
+                        "delivery_days": 4,
+                        "quoted_at": "2026-06-04",
+                    }
+                ),
+            )
+
+            status, _, body = app.handle_get("/api/supplier-price-quotes?product_id=1")
+            payload = json.loads(body)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(len(payload["items"]), 2)
+        lowest = next(item for item in payload["items"] if item["is_lowest_price"])
+        fastest = next(item for item in payload["items"] if item["is_fastest_delivery"])
+        self.assertEqual(lowest["supplier_id"], 2)
+        self.assertEqual(fastest["supplier_id"], 1)
+        self.assertEqual(payload["recommendation"]["supplier_id"], 2)
+
     def test_create_update_and_delete_customer_storage(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "bar.db"

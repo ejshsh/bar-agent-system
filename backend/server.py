@@ -7,11 +7,13 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .db import (
+    compare_supplier_price_quotes,
     create_inventory_adjustment,
     create_product,
     create_purchase_order,
     create_sales_record,
     create_supplier,
+    create_supplier_price_quote,
     create_customer_storage,
     deactivate_customer_storage,
     deactivate_product,
@@ -32,7 +34,8 @@ class BarApi:
         self.db_path = Path(db_path)
 
     def handle_get(self, path: str) -> tuple[int, dict[str, str], str]:
-        route = urlparse(path).path
+        parsed = urlparse(path)
+        route = parsed.path
         initialize_database(self.db_path)
 
         if route == "/api/health":
@@ -51,6 +54,13 @@ class BarApi:
             return self._json(200, {"items": dataset["suppliers"]})
         if route == "/api/customer-storage":
             return self._json(200, {"items": dataset["customer_storage"]})
+        if route == "/api/supplier-price-quotes":
+            query = dict(pair.split("=", 1) for pair in parsed.query.split("&") if "=" in pair)
+            try:
+                comparison = compare_supplier_price_quotes(self.db_path, int(query["product_id"]))
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_supplier_price_quote_query", "message": str(error)})
+            return self._json(200, comparison)
 
         return self._json(404, {"error": "not_found", "path": route})
 
@@ -120,6 +130,12 @@ class BarApi:
             except (KeyError, TypeError, ValueError) as error:
                 return self._json(400, {"error": "invalid_supplier", "message": str(error)})
             return self._json(201, {"supplier": supplier})
+        if route == "/api/supplier-price-quotes":
+            try:
+                quote = create_supplier_price_quote(self.db_path, payload)
+            except (KeyError, TypeError, ValueError) as error:
+                return self._json(400, {"error": "invalid_supplier_price_quote", "message": str(error)})
+            return self._json(201, {"quote": quote})
         if route == "/api/customer-storage":
             try:
                 customer_storage = create_customer_storage(self.db_path, payload)

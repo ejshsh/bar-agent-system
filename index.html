@@ -31,6 +31,7 @@
           <button class="button secondary" type="button" data-open-purchase>新增采购单</button>
           <button class="button secondary" type="button" data-open-sale>销售出库</button>
           <button class="button secondary" type="button" data-open-inventory-adjustment>库存盘点</button>
+          <button class="button secondary" type="button" data-open-supplier-quotes>报价对比</button>
           <button class="button primary" type="button">生成补货建议</button>
         </div>
       </div>
@@ -484,6 +485,56 @@
           <div class="modal-actions">
             <button class="button secondary" type="button" data-close-inventory-adjustment>取消</button>
             <button class="button primary" type="submit">提交调整</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" data-supplier-quotes-modal hidden>
+      <section class="purchase-modal" role="dialog" aria-modal="true" aria-labelledby="supplier-quotes-modal-title">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow blue">Supplier Quotes</p>
+            <h2 id="supplier-quotes-modal-title">供应商报价对比</h2>
+          </div>
+          <button class="icon-button" type="button" data-close-supplier-quotes aria-label="关闭供应商报价表单">×</button>
+        </div>
+        <form class="purchase-form" data-supplier-quotes-form>
+          <label>
+            酒水商品
+            <select name="product_id" required data-quote-product-select>
+              <option value="1">百龄坛 12 年</option>
+              <option value="2">荔枝味预调酒</option>
+              <option value="3">精酿小麦啤</option>
+              <option value="4">金汤力基酒</option>
+            </select>
+          </label>
+          <label>
+            供应商
+            <select name="supplier_id" required data-quote-supplier-select>
+              <option value="1">港岛酒业</option>
+              <option value="2">夜色供应链</option>
+              <option value="3">城市精酿</option>
+            </select>
+          </label>
+          <label>
+            报价单价
+            <input name="unit_price" type="number" min="0.01" step="0.01" value="198" required>
+          </label>
+          <label>
+            交付天数
+            <input name="delivery_days" type="number" min="0" step="0.1" value="3" required>
+          </label>
+          <label>
+            报价日期
+            <input name="quoted_at" type="date" required data-quote-date>
+          </label>
+          <p class="form-message" data-supplier-quotes-message>提交报价后会刷新同款酒水的供应商对比。</p>
+          <div class="quote-results" data-quote-results></div>
+          <div class="modal-actions">
+            <button class="button secondary" type="button" data-refresh-quotes>刷新对比</button>
+            <button class="button secondary" type="button" data-close-supplier-quotes>取消</button>
+            <button class="button primary" type="submit">提交报价</button>
           </div>
         </form>
       </section>

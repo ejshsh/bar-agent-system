@@ -56,6 +56,16 @@ const inventoryAdjustmentDateInput = document.querySelector("[data-inventory-adj
 const inventoryAdjustmentMessage = document.querySelector("[data-inventory-adjustment-message]");
 const countPanel = document.querySelector("[data-count-panel]");
 const lossPanel = document.querySelector("[data-loss-panel]");
+const supplierQuotesModal = document.querySelector("[data-supplier-quotes-modal]");
+const openSupplierQuotesButton = document.querySelector("[data-open-supplier-quotes]");
+const closeSupplierQuotesButtons = document.querySelectorAll("[data-close-supplier-quotes]");
+const supplierQuotesForm = document.querySelector("[data-supplier-quotes-form]");
+const quoteProductSelect = document.querySelector("[data-quote-product-select]");
+const quoteSupplierSelect = document.querySelector("[data-quote-supplier-select]");
+const quoteDateInput = document.querySelector("[data-quote-date]");
+const supplierQuotesMessage = document.querySelector("[data-supplier-quotes-message]");
+const quoteResults = document.querySelector("[data-quote-results]");
+const refreshQuotesButton = document.querySelector("[data-refresh-quotes]");
 
 let currentStorageRecords = [];
 
@@ -156,12 +166,15 @@ function renderPurchaseOptions(products, suppliers) {
     productSelect.innerHTML = options;
     saleProductSelect.innerHTML = options;
     inventoryProductSelect.innerHTML = options;
+    quoteProductSelect.innerHTML = options;
   }
 
   if (suppliers.length > 0) {
-    supplierSelect.innerHTML = suppliers.map((item) => (
+    const options = suppliers.map((item) => (
       `<option value="${item.id}">${escapeHtml(item.name)}</option>`
     )).join("");
+    supplierSelect.innerHTML = options;
+    quoteSupplierSelect.innerHTML = options;
   }
 }
 
@@ -377,6 +390,17 @@ function bindPurchaseForm() {
     }
   });
   inventoryAdjustmentForm.addEventListener("submit", submitInventoryAdjustment);
+  quoteDateInput.value = new Date().toISOString().slice(0, 10);
+  openSupplierQuotesButton.addEventListener("click", openSupplierQuotesModal);
+  closeSupplierQuotesButtons.forEach((button) => button.addEventListener("click", closeSupplierQuotesModal));
+  supplierQuotesModal.addEventListener("click", (event) => {
+    if (event.target === supplierQuotesModal) {
+      closeSupplierQuotesModal();
+    }
+  });
+  quoteProductSelect.addEventListener("change", loadSupplierQuoteComparison);
+  refreshQuotesButton.addEventListener("click", loadSupplierQuoteComparison);
+  supplierQuotesForm.addEventListener("submit", submitSupplierQuote);
 }
 
 function closePurchaseModal() {
@@ -765,6 +789,101 @@ async function submitInventoryAdjustment(event) {
     inventoryAdjustmentMessage.textContent = `调整失败：${error.message}`;
     inventoryAdjustmentMessage.className = "form-message error";
   }
+}
+
+function openSupplierQuotesModal() {
+  supplierQuotesModal.hidden = false;
+  quoteDateInput.value = new Date().toISOString().slice(0, 10);
+  supplierQuotesMessage.textContent = "提交报价后会刷新同款酒水的供应商对比。";
+  supplierQuotesMessage.className = "form-message";
+  loadSupplierQuoteComparison();
+}
+
+function closeSupplierQuotesModal() {
+  supplierQuotesModal.hidden = true;
+}
+
+async function submitSupplierQuote(event) {
+  event.preventDefault();
+  const formData = new FormData(supplierQuotesForm);
+  const payload = {
+    product_id: Number(formData.get("product_id")),
+    supplier_id: Number(formData.get("supplier_id")),
+    unit_price: Number(formData.get("unit_price")),
+    delivery_days: Number(formData.get("delivery_days")),
+    quoted_at: String(formData.get("quoted_at"))
+  };
+
+  supplierQuotesMessage.textContent = "正在提交报价...";
+  supplierQuotesMessage.className = "form-message";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/supplier-price-quotes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorPayload = await response.json();
+      throw new Error(errorPayload.message || `API returned ${response.status}`);
+    }
+
+    supplierQuotesMessage.textContent = "报价已记录。";
+    supplierQuotesMessage.className = "form-message success";
+    await loadSupplierQuoteComparison();
+  } catch (error) {
+    supplierQuotesMessage.textContent = `报价失败：${error.message}`;
+    supplierQuotesMessage.className = "form-message error";
+  }
+}
+
+async function loadSupplierQuoteComparison() {
+  const productId = quoteProductSelect.value;
+  if (!productId) {
+    return;
+  }
+
+  quoteResults.innerHTML = "<p class=\"form-message\">正在读取报价对比...</p>";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/supplier-price-quotes?product_id=${productId}`);
+    if (!response.ok) {
+      const errorPayload = await response.json();
+      throw new Error(errorPayload.message || `API returned ${response.status}`);
+    }
+
+    const comparison = await response.json();
+    if (!comparison.items.length) {
+      quoteResults.innerHTML = "<p class=\"form-message\">当前酒水还没有供应商报价。</p>";
+      return;
+    }
+
+    quoteResults.innerHTML = `
+      <div class="quote-comparison">
+        ${comparison.items.map(renderQuoteComparisonRow).join("")}
+      </div>
+      <p class="form-message success">推荐：${escapeHtml(comparison.recommendation.supplier_name)}，报价 ${formatNumber(comparison.recommendation.unit_price)}，交付 ${formatNumber(comparison.recommendation.delivery_days)} 天。</p>
+    `;
+  } catch (error) {
+    quoteResults.innerHTML = `<p class="form-message error">读取报价失败：${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function renderQuoteComparisonRow(item) {
+  const tags = [
+    item.is_lowest_price ? "最低价" : "",
+    item.is_fastest_delivery ? "最快交付" : ""
+  ].filter(Boolean).join(" / ");
+
+  return `
+    <article class="quote-row">
+      <strong>${escapeHtml(item.supplier_name)}</strong>
+      <span>报价 ${formatNumber(item.unit_price)}</span>
+      <span>交付 ${formatNumber(item.delivery_days)} 天</span>
+      <span>${tags || "备选"}</span>
+    </article>
+  `;
 }
 
 async function loadDashboard() {

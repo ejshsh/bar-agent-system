@@ -69,6 +69,15 @@ CREATE TABLE IF NOT EXISTS storage_pickup_records (
     remaining_after REAL NOT NULL,
     picked_up_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS supplier_price_quotes (
+    id INTEGER PRIMARY KEY,
+    product_id INTEGER NOT NULL,
+    supplier_id INTEGER NOT NULL,
+    unit_price REAL NOT NULL,
+    delivery_days REAL NOT NULL,
+    quoted_at TEXT NOT NULL
+);
 """
 
 
@@ -133,6 +142,7 @@ def load_dataset(db_path: str | Path) -> dict[str, list[dict[str, Any]]]:
             "inventory_records": _fetch_all(connection, "SELECT * FROM inventory_records ORDER BY id"),
             "customer_storage": _fetch_all(connection, "SELECT * FROM customer_storage WHERE is_active = 1 ORDER BY id"),
             "storage_pickup_records": _fetch_all(connection, "SELECT * FROM storage_pickup_records ORDER BY id"),
+            "supplier_price_quotes": _fetch_all(connection, "SELECT * FROM supplier_price_quotes ORDER BY id"),
         }
 
 
@@ -194,6 +204,94 @@ def create_supplier(db_path: str | Path, payload: dict[str, Any]) -> dict[str, A
             ).fetchone()
 
     return dict(supplier)
+
+
+def create_supplier_price_quote(db_path: str | Path, payload: dict[str, Any]) -> dict[str, Any]:
+    product_id = int(payload["product_id"])
+    supplier_id = int(payload["supplier_id"])
+    unit_price = float(payload["unit_price"])
+    delivery_days = float(payload["delivery_days"])
+    quoted_at = str(payload["quoted_at"]).strip()
+
+    if unit_price <= 0:
+        raise ValueError("unit_price must be greater than 0")
+    if delivery_days < 0:
+        raise ValueError("delivery_days must not be negative")
+    if not quoted_at:
+        raise ValueError("quoted_at is required")
+
+    with closing(connect(db_path)) as connection:
+        with connection:
+            product = connection.execute(
+                "SELECT * FROM products WHERE id = ? AND is_active = 1",
+                (product_id,),
+            ).fetchone()
+            supplier = connection.execute(
+                "SELECT * FROM suppliers WHERE id = ? AND is_active = 1",
+                (supplier_id,),
+            ).fetchone()
+            if product is None:
+                raise ValueError("product_id does not exist")
+            if supplier is None:
+                raise ValueError("supplier_id does not exist")
+
+            cursor = connection.execute(
+                """
+                INSERT INTO supplier_price_quotes (product_id, supplier_id, unit_price, delivery_days, quoted_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (product_id, supplier_id, unit_price, delivery_days, quoted_at),
+            )
+            quote = connection.execute(
+                "SELECT * FROM supplier_price_quotes WHERE id = ?",
+                (int(cursor.lastrowid),),
+            ).fetchone()
+
+    return dict(quote)
+
+
+def compare_supplier_price_quotes(db_path: str | Path, product_id: int) -> dict[str, Any]:
+    with closing(connect(db_path)) as connection:
+        rows = _fetch_all(
+            connection,
+            """
+            SELECT
+                supplier_price_quotes.*,
+                suppliers.name AS supplier_name,
+                suppliers.price_stability_score AS price_stability_score
+            FROM supplier_price_quotes
+            JOIN suppliers ON suppliers.id = supplier_price_quotes.supplier_id
+            WHERE supplier_price_quotes.product_id = ? AND suppliers.is_active = 1
+            ORDER BY supplier_price_quotes.unit_price ASC, supplier_price_quotes.delivery_days ASC, supplier_price_quotes.id ASC
+            """,
+            (product_id,),
+        )
+
+    if not rows:
+        return {"items": [], "recommendation": None}
+
+    lowest_price = min(float(item["unit_price"]) for item in rows)
+    fastest_delivery = min(float(item["delivery_days"]) for item in rows)
+    scored_rows = []
+    for item in rows:
+        is_lowest_price = float(item["unit_price"]) == lowest_price
+        is_fastest_delivery = float(item["delivery_days"]) == fastest_delivery
+        score = (
+            (100 if is_lowest_price else 0)
+            + (30 if is_fastest_delivery else 0)
+            + float(item["price_stability_score"]) * 0.2
+        )
+        scored_rows.append(
+            {
+                **item,
+                "is_lowest_price": is_lowest_price,
+                "is_fastest_delivery": is_fastest_delivery,
+                "comparison_score": round(score, 2),
+            }
+        )
+
+    recommendation = max(scored_rows, key=lambda item: (item["comparison_score"], -float(item["unit_price"])))
+    return {"items": scored_rows, "recommendation": recommendation}
 
 
 def create_purchase_order(db_path: str | Path, payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -553,8 +651,8 @@ def _seed_database(connection: sqlite3.Connection) -> None:
     )
 
 
-def _fetch_all(connection: sqlite3.Connection, query: str) -> list[dict[str, Any]]:
-    return [dict(row) for row in connection.execute(query).fetchall()]
+def _fetch_all(connection: sqlite3.Connection, query: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+    return [dict(row) for row in connection.execute(query, params).fetchall()]
 
 
 def _average_purchase_price(connection: sqlite3.Connection, product_id: int) -> float | None:

@@ -801,6 +801,32 @@ h2 {
   color: #bf4800;
 }
 
+.quote-results {
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.quote-comparison {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  display: grid;
+  overflow: hidden;
+}
+
+.quote-row {
+  align-items: center;
+  border-bottom: 1px solid var(--hairline);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1.2fr repeat(3, minmax(0, 1fr));
+  padding: 12px 14px;
+}
+
+.quote-row:last-child {
+  border-bottom: 0;
+}
+
 .modal-actions {
   display: flex;
   gap: 12px;
